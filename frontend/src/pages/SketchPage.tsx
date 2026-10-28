@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, getFullImageUrl } from '../api/client';
+import { ForensicImage } from '../components/ForensicImage';
 import {
   Sparkles,
   Download,
@@ -56,14 +57,6 @@ export const SketchPage: React.FC = () => {
   const [error503, setError503] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const getFullImageUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    const base = import.meta.env.VITE_API_BASE_URL || '';
-    const full = `${base}${url}`;
-    return token ? `${full}?token=${token}` : full;
-  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -332,7 +325,7 @@ export const SketchPage: React.FC = () => {
             {sketches.length > 0 && activeSketch ? (
               <div className="space-y-5">
                 <div className="relative aspect-square max-w-lg mx-auto bg-white rounded-xl overflow-hidden shadow-2xl border-4 border-slate-800 flex items-center justify-center group">
-                  <img
+                  <ForensicImage
                     src={getFullImageUrl(activeSketch.image_url)}
                     alt={`Composite Sketch Version ${activeSketch.sketch_version}`}
                     className="w-full h-full object-cover"

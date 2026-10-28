@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+
+export const getFullImageUrl = (url: string): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+  const base = API_BASE_URL.replace(/\/+$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  const full = `${base}${cleanPath}`;
+  return token ? `${full}?token=${encodeURIComponent(token)}` : full;
+};
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

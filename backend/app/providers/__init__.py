@@ -6,6 +6,7 @@ from app.providers.exceptions import ProviderError, ProviderUnavailable, Provide
 from app.providers.llm.noop_provider import NoOpLLMProvider
 from app.providers.llm.openai_provider import OpenAILLMProvider
 from app.providers.llm.anthropic_provider import AnthropicLLMProvider
+from app.providers.llm.groq_provider import GroqLLMProvider
 
 from app.providers.transcription.noop_provider import NoOpTranscriptionProvider
 from app.providers.transcription.openai_whisper import OpenAIWhisperProvider
@@ -21,10 +22,16 @@ def get_provider(kind: str) -> Union[LLMProvider, TranscriptionProvider, ImagePr
     k = kind.lower()
     if k == "llm":
         prov = (settings.LLM_PROVIDER or "none").lower()
-        if prov == "openai" and settings.LLM_API_KEY:
-            return OpenAILLMProvider(api_key=settings.LLM_API_KEY, model=settings.LLM_MODEL)
-        elif prov == "anthropic" and settings.LLM_API_KEY:
-            return AnthropicLLMProvider(api_key=settings.LLM_API_KEY, model=settings.LLM_MODEL)
+        api_key = settings.LLM_API_KEY or ""
+        if (prov == "groq" or api_key.startswith("gsk_")) and api_key:
+            model = settings.LLM_MODEL
+            if not model or model in ("gpt-4o-mini", "none"):
+                model = "openai/gpt-oss-120b"
+            return GroqLLMProvider(api_key=api_key, model=model)
+        elif prov == "openai" and api_key:
+            return OpenAILLMProvider(api_key=api_key, model=settings.LLM_MODEL)
+        elif prov == "anthropic" and api_key:
+            return AnthropicLLMProvider(api_key=api_key, model=settings.LLM_MODEL)
         return NoOpLLMProvider(message="LLM_PROVIDER is none or LLM_API_KEY not configured")
 
     elif k in ("transcription", "whisper"):
@@ -59,6 +66,7 @@ __all__ = [
     "LLMProvider",
     "TranscriptionProvider",
     "ImageProvider",
+    "GroqLLMProvider",
     "HuggingFaceSpaceImageProvider",
     "ZImageTurboProvider",
     "ProviderError",

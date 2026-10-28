@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, getFullImageUrl } from '../api/client';
+import { ForensicImage } from '../components/ForensicImage';
 import {
   Sliders,
   Sparkles,
@@ -52,14 +53,6 @@ export const RefinePage: React.FC = () => {
   const [splitPosition, setSplitPosition] = useState<number>(50);
   const [comparisonMode, setComparisonMode] = useState<'side-by-side' | 'split'>('side-by-side');
 
-  const getFullImageUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    const base = import.meta.env.VITE_API_BASE_URL || '';
-    const full = `${base}${url}`;
-    return token ? `${full}?token=${token}` : full;
-  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -448,7 +441,7 @@ export const RefinePage: React.FC = () => {
                   </div>
                   <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-slate-800 shadow-xl relative">
                     {sketchPrev && (
-                      <img
+                      <ForensicImage
                         src={getFullImageUrl(sketchPrev.image_url)}
                         alt={`Version ${sketchPrev.sketch_version}`}
                         className="w-full h-full object-cover"
@@ -473,7 +466,7 @@ export const RefinePage: React.FC = () => {
                   </div>
                   <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-blue-500/50 shadow-2xl relative">
                     {sketchCurr && (
-                      <img
+                      <ForensicImage
                         src={getFullImageUrl(sketchCurr.image_url)}
                         alt={`Version ${sketchCurr.sketch_version}`}
                         className="w-full h-full object-cover"
