@@ -1,61 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Shield,
-  Sparkles,
+  Fingerprint,
   ArrowRight,
-  FolderOpen,
   LayoutDashboard,
-  CheckCircle2,
-  Lock,
-  Cpu,
-  Layers,
-  ChevronRight
+  Shield,
+  FileText,
+  Search,
+  Sparkles,
+  Layers
 } from 'lucide-react';
-import { InvestigativeAidBanner } from '../components/InvestigativeAidBanner';
 
 export const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
   const [animationComplete, setAnimationComplete] = useState(false);
-  const [isRepeatVisitor, setIsRepeatVisitor] = useState(false);
 
   useEffect(() => {
-    const visited = localStorage.getItem('crimesketch_welcomed');
+    const visited = localStorage.getItem('sketchtrace_welcomed');
     if (visited === 'true') {
-      setIsRepeatVisitor(true);
       setAnimationComplete(true);
     } else {
-      // Reveal animation takes 1.4s (< 2s requirement)
       const timer = setTimeout(() => {
         setAnimationComplete(true);
-        localStorage.setItem('crimesketch_welcomed', 'true');
-      }, 1400);
+        localStorage.setItem('sketchtrace_welcomed', 'true');
+      }, 1200);
       return () => clearTimeout(timer);
     }
   }, []);
 
-  const skipAnimation = () => {
-    localStorage.setItem('crimesketch_welcomed', 'true');
-    setAnimationComplete(true);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-6 lg:p-12 relative overflow-hidden font-sans select-none">
-      {/* Background forensic grid lighting effect */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="min-h-screen noir-desk text-parchment-100 flex flex-col justify-between p-4 sm:p-6 lg:p-12 relative overflow-hidden font-sans select-none">
+      {/* Evidence Board Vignette & Warm Desk Glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-crimson-950/20 via-noir-950/80 to-noir-950 pointer-events-none"></div>
 
-      {/* Top Header */}
-      <header className="relative z-10 flex items-center justify-between max-w-6xl w-full mx-auto pb-4 border-b border-slate-800/80">
+      {/* Decorative Evidence Board Elements */}
+      <div className="absolute top-10 left-10 opacity-20 pointer-events-none hidden lg:block">
+        <div className="w-32 h-40 border-2 border-dashed border-parchment-300 rounded rotate-[-6deg] p-2 bg-noir-900/40">
+          <div className="w-full h-24 bg-noir-800 rounded mb-2"></div>
+          <div className="h-2 bg-parchment-300/40 rounded w-3/4 mb-1"></div>
+          <div className="h-2 bg-parchment-300/30 rounded w-1/2"></div>
+        </div>
+      </div>
+
+      <div className="absolute bottom-16 left-12 opacity-30 pointer-events-none hidden md:block">
+        <div className="px-3 py-1 bg-amber-500 text-noir-950 font-mono text-xs font-black rotate-[-12deg] shadow-lg">
+          EVIDENCE #3
+        </div>
+      </div>
+
+      <div className="absolute top-16 right-16 opacity-15 pointer-events-none hidden lg:block">
+        <Fingerprint className="w-64 h-64 text-parchment-300 rotate-[15deg]" />
+      </div>
+
+      {/* Top Navigation */}
+      <header className="relative z-10 flex items-center justify-between max-w-6xl w-full mx-auto pb-4 border-b border-noir-700/60">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-lg shadow-blue-950">
-            <Shield className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-crimson-900/60 border border-crimson-700/60 flex items-center justify-center text-crimson-200 shadow-md">
+            <Fingerprint className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-              CrimeSketch AI
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-blue-950 text-blue-400 border border-blue-800 rounded font-semibold">
+            <span className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              Sketch<span className="text-crimson-500">Trace</span>
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-noir-850 text-parchment-300 border border-parchment-400/30 rounded font-semibold">
                 v2.0
               </span>
             </span>
@@ -63,122 +69,116 @@ export const WelcomePage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {!animationComplete && (
-            <button
-              onClick={skipAnimation}
-              className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 transition"
-            >
-              Skip Intro →
-            </button>
-          )}
           <button
             onClick={() => navigate('/dashboard')}
-            className="text-xs font-semibold px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg flex items-center gap-1.5 transition"
+            className="text-xs font-semibold px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-100 rounded-lg flex items-center gap-2 transition"
           >
-            <LayoutDashboard className="w-3.5 h-3.5 text-blue-400" />
-            Dashboard
+            <LayoutDashboard className="w-3.5 h-3.5 text-crimson-400" />
+            Investigator Portal
           </button>
         </div>
       </header>
 
-      {/* Main Hero Reveal Content */}
-      <main className="relative z-10 max-w-4xl w-full mx-auto my-auto text-center py-8 sm:py-12 px-2">
-        {/* Animated Badge & Icon */}
+      {/* Main Hero Board */}
+      <main className="relative z-10 max-w-4xl w-full mx-auto my-auto text-center py-10 px-4">
+        {/* Forensic Badge & Logo Reveal */}
         <div
           className={`transition-all duration-700 transform ${
-            animationComplete ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-75 translate-y-4'
+            animationComplete ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-90 translate-y-4'
           }`}
         >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-950/80 border border-blue-800/80 text-blue-300 text-xs font-semibold mb-6 shadow-inner">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            Forensic Intelligence & Facial Composite Suite
+          {/* Fingerprint Main Hero Icon */}
+          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-noir-900/90 border-2 border-crimson-800/80 flex items-center justify-center text-crimson-500 shadow-2xl shadow-crimson-950">
+            <Fingerprint className="w-12 h-12" />
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight mb-4">
-            AI-Assisted Police Facial Composite & Investigation Platform
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-2">
+            Sketch<span className="text-crimson-500">Trace</span>
           </h1>
-
-          <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-8">
-            Synthesize witness testimony, audio recordings, and observable descriptors into standardized, version-controlled forensic facial composites without fabrication.
+          <p className="text-sm sm:text-base font-semibold text-crimson-400 tracking-wider uppercase mb-3">
+            AI Crime Scene Sketch Generator
           </p>
 
-          {/* Action CTAs */}
+          <p className="serif-font italic text-2xl sm:text-3xl text-parchment-200 max-w-xl mx-auto mb-8 font-serif leading-snug">
+            "From Witness Words to Visual Justice"
+          </p>
+
+          {/* Call to Action */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
             <button
               onClick={() => navigate('/cases')}
-              className="w-full sm:w-auto px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xl shadow-blue-600/25 transition group cursor-pointer"
+              className="w-full sm:w-auto px-8 py-3.5 btn-crimson text-sm font-bold flex items-center justify-center gap-2 shadow-crimson transition group cursor-pointer"
             >
               <span>Get Started</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
 
             <button
-              onClick={() => navigate('/dashboard')}
-              className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+              onClick={() => navigate('/login')}
+              className="w-full sm:w-auto px-6 py-3.5 bg-noir-850 hover:bg-noir-800 text-parchment-200 border border-noir-700 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
             >
-              <LayoutDashboard className="w-4 h-4 text-blue-400" />
-              <span>Enter Dashboard</span>
+              <span>Sign In</span>
             </button>
           </div>
+
+          {/* Subtext */}
+          <p className="text-xs text-parchment-400/80 mt-8 font-mono tracking-wide">
+            Real people. Real descriptions. Real impact.
+          </p>
         </div>
 
-        {/* Feature Cards Grid */}
+        {/* Forensic Highlights Ribbon on Manila Paper Cards */}
         <div
           className={`grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12 text-left transition-all duration-700 delay-300 ${
             animationComplete ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
           }`}
         >
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800/80 rounded-xl p-4 shadow-lg hover:border-slate-700 transition">
-            <div className="w-8 h-8 rounded-lg bg-blue-950 flex items-center justify-center text-blue-400 mb-3 border border-blue-900">
-              <Cpu className="w-4 h-4" />
+          <div className="dossier-card p-4 hover:shadow-dossier transition">
+            <div className="w-8 h-8 rounded-lg bg-crimson-800 text-white flex items-center justify-center mb-3">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-white mb-1">Zero Fabrication</h2>
-            <p className="text-xs text-slate-400 leading-normal">
-              Strict forensic prompting maps unmentioned features to neutral defaults; requires manual confirmation for unsupported deltas.
+            <h2 className="text-sm font-bold text-ink-900 mb-1">Witness AI Extraction</h2>
+            <p className="text-xs text-ink-600 leading-normal">
+              Converts free narrative statements into certified facial feature specifications via Groq LLM without hallucination.
             </p>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800/80 rounded-xl p-4 shadow-lg hover:border-slate-700 transition">
-            <div className="w-8 h-8 rounded-lg bg-indigo-950 flex items-center justify-center text-indigo-400 mb-3 border border-indigo-900">
+          <div className="dossier-card p-4 hover:shadow-dossier transition">
+            <div className="w-8 h-8 rounded-lg bg-noir-900 text-parchment-200 flex items-center justify-center mb-3 border border-parchment-border">
               <Layers className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-white mb-1">Immutable History</h2>
-            <p className="text-xs text-slate-400 leading-normal">
-              Prior sketch and report iterations are cryptographically preserved with version-controlled prompts and complete audit trails.
+            <h2 className="text-sm font-bold text-ink-900 mb-1">Pencil Sketch Synthesis</h2>
+            <p className="text-xs text-ink-600 leading-normal">
+              Renders authentic monochrome graphite forensic composite sketches matching police standard documentary styles.
             </p>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800/80 rounded-xl p-4 shadow-lg hover:border-slate-700 transition">
-            <div className="w-8 h-8 rounded-lg bg-emerald-950 flex items-center justify-center text-emerald-400 mb-3 border border-emerald-900">
-              <Lock className="w-4 h-4" />
+          <div className="dossier-card p-4 hover:shadow-dossier transition">
+            <div className="w-8 h-8 rounded-lg bg-crimson-800 text-white flex items-center justify-center mb-3">
+              <Shield className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-white mb-1">Forensic Security</h2>
-            <p className="text-xs text-slate-400 leading-normal">
-              Private opaque storage tokens, EXIF GPS data stripping, role-based access control, and complete legal disclaimers.
+            <h2 className="text-sm font-bold text-ink-900 mb-1">Morphological Workbench</h2>
+            <p className="text-xs text-ink-600 leading-normal">
+              Fine-tune jawlines, chin width, eye shapes, hair, and aging with real-time SVG wireframes and before/after split sliders.
             </p>
           </div>
-        </div>
-
-        {/* Disclaimer Banner */}
-        <div className="mt-8 text-left">
-          <InvestigativeAidBanner compact />
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 max-w-6xl w-full mx-auto pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+      <footer className="relative z-10 max-w-6xl w-full mx-auto pt-4 border-t border-noir-700/60 flex flex-col sm:flex-row items-center justify-between text-xs text-parchment-400 gap-2">
         <div className="flex items-center gap-2">
-          <span>CrimeSketch AI Forensic Suite</span>
+          <span>SketchTrace Forensic Platform</span>
           <span>•</span>
           <span>Law Enforcement Investigative Aid</span>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/cases')} className="hover:text-slate-300 transition">
-            Case Registry
+          <button onClick={() => navigate('/dashboard')} className="hover:text-parchment-200 transition">
+            Dashboard
           </button>
           <span>•</span>
-          <button onClick={() => navigate('/dashboard')} className="hover:text-slate-300 transition">
-            Analytics Dashboard
+          <button onClick={() => navigate('/cases')} className="hover:text-parchment-200 transition">
+            Case Archive
           </button>
         </div>
       </footer>

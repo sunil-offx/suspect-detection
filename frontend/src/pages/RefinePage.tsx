@@ -53,7 +53,6 @@ export const RefinePage: React.FC = () => {
   const [splitPosition, setSplitPosition] = useState<number>(50);
   const [comparisonMode, setComparisonMode] = useState<'side-by-side' | 'split'>('side-by-side');
 
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -172,7 +171,6 @@ export const RefinePage: React.FC = () => {
     }
   };
 
-
   const handleGenerateWithFixture = async () => {
     if (!id || !lastDeltas) return;
     setRefining(true);
@@ -194,9 +192,9 @@ export const RefinePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-300">
-        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium animate-pulse">Loading sketch refinement workbench...</p>
+      <div className="min-h-screen noir-desk flex flex-col items-center justify-center p-6 text-parchment-300">
+        <div className="w-12 h-12 border-4 border-crimson-700/20 border-t-crimson-600 rounded-full animate-spin mb-4" />
+        <p className="text-sm font-medium font-serif italic text-parchment-300">Loading sketch refinement workbench...</p>
       </div>
     );
   }
@@ -205,20 +203,20 @@ export const RefinePage: React.FC = () => {
   const sketchCurr = sketches.find((s) => s.sketch_version === vCurr) || sketches[0];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
+    <div className="min-h-screen noir-desk text-parchment-100 pb-20 font-sans">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-blue-400/40">
+        <div className="fixed bottom-6 right-6 z-50 bg-crimson-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-crimson flex items-center gap-2 border border-crimson-500">
           <Check className="w-4 h-4" />
           {toastMessage}
         </div>
       )}
 
       {/* Forensic Banner */}
-      <div className="bg-slate-900/90 border-b border-slate-800 py-2.5 px-4 text-center">
-        <p className="text-xs text-slate-400 flex items-center justify-center gap-2">
-          <Shield className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-semibold text-slate-300">FORENSIC COMPOSITE REFINEMENT:</span>
+      <div className="bg-noir-900/90 border-b border-noir-800 py-2.5 px-4 text-center">
+        <p className="text-xs text-parchment-400 flex items-center justify-center gap-2">
+          <Shield className="w-3.5 h-3.5 text-crimson-400" />
+          <span className="font-semibold text-parchment-200">FORENSIC COMPOSITE REFINEMENT:</span>
           Append-only version control. Prior versions are permanently immutable.
         </p>
       </div>
@@ -228,17 +226,17 @@ export const RefinePage: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate(`/cases/${id}/sketch`)}
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-parchment-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Sketch Page
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-parchment-400 font-mono">
               Total Versions: <strong className="text-white">{sketches.length}</strong>
             </span>
             <button
               onClick={() => navigate(`/cases/${id}/overview`)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded-lg btn-parchment text-xs font-semibold flex items-center gap-1.5 transition-colors"
             >
               Case Dossier
               <ArrowRight className="w-3.5 h-3.5" />
@@ -250,16 +248,16 @@ export const RefinePage: React.FC = () => {
 
         {/* ZeroGPU / Provider Quota Alert Banner */}
         {quotaError && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 text-amber-200 space-y-3 shadow-xl">
+          <div className="dossier-card border-amber-800/40 p-6 space-y-3">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-crimson-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">{quotaError?.includes('Z-Image') ? 'Z-Image Turbo Windows Service Notice' : 'AI Image Provider Notice'}</h3>
-                <p className="text-xs text-amber-300/90 leading-relaxed">
+                <h3 className="font-bold text-ink-950 text-base font-serif">{quotaError?.includes('Z-Image') ? 'Z-Image Turbo Windows Service Notice' : 'AI Image Provider Notice'}</h3>
+                <p className="text-xs text-ink-700 leading-relaxed">
                   {quotaError}
                 </p>
-                <p className="text-[11px] text-slate-400 pt-1">
-                  <strong>How to resolve:</strong> ZeroGPU free quotas reset every few minutes. You can also add a free Hugging Face User Access Token to <code className="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">.env</code> (<code className="text-amber-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">IMAGE_API_KEY=hf_...</code>), or proceed immediately using the verified forensic test fixture.
+                <p className="text-[11px] text-ink-500 pt-1">
+                  <strong>How to resolve:</strong> ZeroGPU free quotas reset every few minutes. You can also add a free Hugging Face User Access Token to <code className="text-crimson-800 bg-parchment-100 px-1.5 py-0.5 rounded font-mono">.env</code>, or proceed immediately using the verified forensic test fixture.
                 </p>
               </div>
             </div>
@@ -267,7 +265,7 @@ export const RefinePage: React.FC = () => {
               <button
                 onClick={handleGenerateWithFixture}
                 disabled={refining}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-1.5"
+                className="btn-crimson px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Proceed With Verified Test Fixture
@@ -275,13 +273,13 @@ export const RefinePage: React.FC = () => {
               <button
                 onClick={() => lastDeltas && handleApplyAdjustments(lastDeltas.deltas, lastDeltas.summary)}
                 disabled={refining}
-                className="px-4 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/40 text-amber-100 text-xs font-semibold border border-amber-500/40"
+                className="btn-parchment px-4 py-2 rounded-xl text-xs font-semibold"
               >
                 Retry Live AI
               </button>
               <button
                 onClick={() => setQuotaError(null)}
-                className="px-3 py-2 rounded-xl bg-slate-800 text-slate-400 text-xs hover:text-white"
+                className="px-3 py-2 rounded-xl text-ink-600 hover:text-ink-900 text-xs font-medium"
               >
                 Dismiss
               </button>
@@ -297,12 +295,12 @@ export const RefinePage: React.FC = () => {
         />
 
         {/* 2. SECONDARY: Quick Natural Language Text Refinement */}
-        <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl p-6 space-y-3">
+        <div className="dossier-card p-6 space-y-3">
           <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-bold text-white">Natural Language Refinement Note</h3>
+            <Sliders className="w-4 h-4 text-crimson-700" />
+            <h3 className="text-sm font-bold text-ink-950 font-serif">Natural Language Refinement Note</h3>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-600 font-sans">
             Alternatively type an explicit natural language description based on witness feedback (e.g. "make jawline squarer and heavier", "add wireframe glasses").
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -311,12 +309,12 @@ export const RefinePage: React.FC = () => {
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               placeholder="e.g. Broader jawline with more angular square chin"
-              className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans"
+              className="flex-1 bg-parchment-50 border border-parchment-border rounded-xl px-4 py-2.5 text-xs text-ink-950 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-crimson-700 font-sans"
             />
             <button
               onClick={() => handleNaturalLanguageRefine(false)}
               disabled={refining || !instruction.trim()}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="btn-crimson px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {refining ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               Apply Text Note
@@ -326,20 +324,20 @@ export const RefinePage: React.FC = () => {
 
         {/* Confirmation Modal if required */}
         {confirmationNeeded && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 text-amber-200 space-y-4 shadow-xl animate-fade-in">
+          <div className="dossier-card border-crimson-600/40 p-6 space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-crimson-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">Operator Confirmation Required</h3>
-                <p className="text-sm text-amber-300/90">{pendingReason}</p>
+                <h3 className="font-bold text-ink-950 text-base font-serif">Operator Confirmation Required</h3>
+                <p className="text-sm text-ink-700">{pendingReason}</p>
               </div>
             </div>
 
-            <div className="bg-slate-950/80 p-4 rounded-xl border border-amber-500/20 text-xs space-y-2">
-              <span className="font-semibold text-amber-400 block uppercase tracking-wider text-[11px]">
+            <div className="bg-parchment-100 p-4 rounded-xl border border-parchment-border text-xs space-y-2">
+              <span className="font-semibold text-crimson-900 block uppercase tracking-wider text-[11px] font-mono">
                 Computed Feature Field Deltas:
               </span>
-              <pre className="text-slate-200 font-mono overflow-x-auto p-2 bg-slate-900 rounded">
+              <pre className="text-ink-900 font-mono overflow-x-auto p-2 bg-parchment-50 rounded border border-parchment-border">
                 {JSON.stringify(pendingDeltas, null, 2)}
               </pre>
             </div>
@@ -348,13 +346,13 @@ export const RefinePage: React.FC = () => {
               <button
                 onClick={() => handleNaturalLanguageRefine(true)}
                 disabled={refining}
-                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition-colors shadow-lg shadow-amber-600/20"
+                className="btn-crimson px-5 py-2.5 rounded-xl text-xs font-semibold"
               >
                 Confirm Delta & Generate Version
               </button>
               <button
                 onClick={() => setConfirmationNeeded(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-medium text-xs hover:bg-slate-700 transition-colors"
+                className="btn-parchment px-4 py-2.5 rounded-xl text-xs font-semibold"
               >
                 Cancel
               </button>
@@ -364,22 +362,22 @@ export const RefinePage: React.FC = () => {
 
         {/* 3. SIDE-BY-SIDE & SPLIT COMPARISON OF VERSIONS */}
         {sketches.length >= 1 && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+          <div className="dossier-card p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-parchment-border pb-4">
               <div className="flex items-center gap-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-blue-400" />
+                <h3 className="text-lg font-serif font-bold text-ink-950 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-crimson-700" />
                   Facial Structure Progression Comparison
                 </h3>
               </div>
 
               <div className="flex items-center gap-4 text-xs flex-wrap">
                 {/* View toggle */}
-                <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <div className="flex items-center bg-parchment-100 p-1 rounded-lg border border-parchment-border">
                   <button
                     onClick={() => setComparisonMode('side-by-side')}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all ${
-                      comparisonMode === 'side-by-side' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                      comparisonMode === 'side-by-side' ? 'btn-crimson !shadow-none' : 'text-ink-600 hover:text-ink-900'
                     }`}
                   >
                     <Columns className="w-3.5 h-3.5" />
@@ -388,7 +386,7 @@ export const RefinePage: React.FC = () => {
                   <button
                     onClick={() => setComparisonMode('split')}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all ${
-                      comparisonMode === 'split' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                      comparisonMode === 'split' ? 'btn-crimson !shadow-none' : 'text-ink-600 hover:text-ink-900'
                     }`}
                   >
                     <Split className="w-3.5 h-3.5" />
@@ -398,11 +396,11 @@ export const RefinePage: React.FC = () => {
 
                 {/* Left Version Picker */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400">Before:</span>
+                  <span className="text-ink-600 font-serif">Before:</span>
                   <select
                     value={vPrev}
                     onChange={(e) => setVPrev(Number(e.target.value))}
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-xs font-semibold"
+                    className="bg-parchment-50 border border-parchment-border rounded-lg px-2.5 py-1 text-ink-900 text-xs font-semibold font-mono"
                   >
                     {sketches.map((s) => (
                       <option key={s.id} value={s.sketch_version}>
@@ -414,11 +412,11 @@ export const RefinePage: React.FC = () => {
 
                 {/* Right Version Picker */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400">After:</span>
+                  <span className="text-ink-600 font-serif">After:</span>
                   <select
                     value={vCurr}
                     onChange={(e) => setVCurr(Number(e.target.value))}
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-xs font-semibold"
+                    className="bg-parchment-50 border border-parchment-border rounded-lg px-2.5 py-1 text-ink-900 text-xs font-semibold font-mono"
                   >
                     {sketches.map((s) => (
                       <option key={s.id} value={s.sketch_version}>
@@ -435,11 +433,11 @@ export const RefinePage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left (Before) */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span className="font-semibold text-slate-300">Prior Structure (v{sketchPrev?.sketch_version})</span>
+                  <div className="flex items-center justify-between text-xs text-ink-600">
+                    <span className="font-semibold text-ink-900 font-serif">Prior Structure (v{sketchPrev?.sketch_version})</span>
                     <span className="font-mono text-[11px]">{sketchPrev?.generation_prompt_version}</span>
                   </div>
-                  <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-slate-800 shadow-xl relative">
+                  <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-parchment-border shadow-dossier relative">
                     {sketchPrev && (
                       <ForensicImage
                         src={getFullImageUrl(sketchPrev.image_url)}
@@ -447,12 +445,12 @@ export const RefinePage: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     )}
-                    <div className="absolute top-2 left-2 bg-slate-950/80 px-2 py-0.5 rounded text-[10px] text-slate-300 border border-slate-700">
+                    <div className="absolute top-2 left-2 stamp-open text-[10px]">
                       v{sketchPrev?.sketch_version} (Base)
                     </div>
                   </div>
                   {sketchPrev?.refinement_notes && (
-                    <p className="text-xs text-slate-400 italic line-clamp-2">
+                    <p className="text-xs text-ink-600 italic line-clamp-2 font-serif">
                       Notes: {sketchPrev.refinement_notes}
                     </p>
                   )}
@@ -460,11 +458,11 @@ export const RefinePage: React.FC = () => {
 
                 {/* Right (After / Adjusted) */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span className="font-semibold text-blue-400">Adjusted Structure (v{sketchCurr?.sketch_version})</span>
+                  <div className="flex items-center justify-between text-xs text-ink-600">
+                    <span className="font-semibold text-crimson-800 font-serif">Adjusted Structure (v{sketchCurr?.sketch_version})</span>
                     <span className="font-mono text-[11px]">{sketchCurr?.generation_prompt_version}</span>
                   </div>
-                  <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-blue-500/50 shadow-2xl relative">
+                  <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-crimson-700/60 shadow-dossier relative">
                     {sketchCurr && (
                       <ForensicImage
                         src={getFullImageUrl(sketchCurr.image_url)}
@@ -472,12 +470,12 @@ export const RefinePage: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     )}
-                    <div className="absolute top-2 left-2 bg-blue-600/90 text-white px-2 py-0.5 rounded text-[10px] font-semibold border border-blue-400 shadow">
+                    <div className="absolute top-2 left-2 stamp-solved text-[10px]">
                       v{sketchCurr?.sketch_version} (Adjusted)
                     </div>
                   </div>
                   {sketchCurr?.refinement_notes && (
-                    <p className="text-xs text-slate-300 font-medium line-clamp-2">
+                    <p className="text-xs text-ink-800 font-medium line-clamp-2 font-serif">
                       Notes: {sketchCurr.refinement_notes}
                     </p>
                   )}
@@ -486,7 +484,7 @@ export const RefinePage: React.FC = () => {
             ) : (
               /* SPLIT SLIDER COMPARISON */
               <div className="space-y-4 max-w-lg mx-auto">
-                <div className="relative aspect-square rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl select-none">
+                <div className="relative aspect-square rounded-2xl overflow-hidden border-2 border-parchment-border shadow-dossier select-none bg-white">
                   {/* Background: Current / After image */}
                   {sketchCurr && (
                     <img
@@ -513,33 +511,33 @@ export const RefinePage: React.FC = () => {
 
                   {/* Vertical Divider line */}
                   <div
-                    className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_rgba(0,0,0,0.8)] cursor-ew-resize flex items-center justify-center"
+                    className="absolute top-0 bottom-0 w-1 bg-crimson-700 shadow-[0_0_10px_rgba(0,0,0,0.5)] cursor-ew-resize flex items-center justify-center"
                     style={{ left: `calc(${splitPosition}% - 2px)` }}
                   >
-                    <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shadow-lg border border-white">
+                    <div className="w-6 h-6 rounded-full bg-crimson-700 text-white flex items-center justify-center text-[10px] font-bold shadow-lg border border-parchment-100">
                       ⟷
                     </div>
                   </div>
 
-                  <div className="absolute bottom-2 left-2 bg-slate-950/80 px-2 py-1 rounded text-[10px] font-mono text-slate-300">
+                  <div className="absolute bottom-2 left-2 bg-noir-950/80 px-2 py-1 rounded text-[10px] font-mono text-parchment-200">
                     Left: v{sketchPrev?.sketch_version}
                   </div>
-                  <div className="absolute bottom-2 right-2 bg-slate-950/80 px-2 py-1 rounded text-[10px] font-mono text-blue-400">
+                  <div className="absolute bottom-2 right-2 bg-crimson-900/90 text-white px-2 py-1 rounded text-[10px] font-mono">
                     Right: v{sketchCurr?.sketch_version}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-mono text-slate-400">v{sketchPrev?.sketch_version}</span>
+                  <span className="text-[11px] font-mono text-ink-600">v{sketchPrev?.sketch_version}</span>
                   <input
                     type="range"
                     min="0"
                     max="100"
                     value={splitPosition}
                     onChange={(e) => setSplitPosition(Number(e.target.value))}
-                    className="flex-1 accent-blue-500 cursor-ew-resize h-2 bg-slate-800 rounded-lg"
+                    className="flex-1 accent-crimson-700 cursor-ew-resize h-2 bg-parchment-200 rounded-lg"
                   />
-                  <span className="text-[11px] font-mono text-blue-400">v{sketchCurr?.sketch_version}</span>
+                  <span className="text-[11px] font-mono text-crimson-800 font-bold">v{sketchCurr?.sketch_version}</span>
                 </div>
               </div>
             )}

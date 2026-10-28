@@ -1,43 +1,46 @@
 import React from 'react';
 import { Eye, CheckCircle2, HelpCircle, AlertTriangle } from 'lucide-react';
 
-export type ConfidenceType = 'witness-stated' | 'image-observed' | 'unknown' | 'ambiguous';
+export type ConfidenceType = 'witness-stated' | 'image-observed' | 'unknown' | 'ambiguous' | 'witness' | 'image';
 
 interface ChipProps {
   label: string;
-  type: ConfidenceType;
+  type?: ConfidenceType;
+  level?: string;
   className?: string;
 }
 
-export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, className = '' }) => {
-  if (type === 'witness-stated') {
+export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, level, className = '' }) => {
+  const effectiveType = type || (level === 'witness' ? 'witness-stated' : level === 'image' ? 'image-observed' : level || 'unknown');
+
+  if (effectiveType === 'witness-stated' || effectiveType === 'witness') {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30 shadow-sm ${className}`}
+        className={`stamp-solved !text-[11px] !py-0.5 !px-2 flex items-center gap-1 shadow-sm ${className}`}
       >
-        <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+        <CheckCircle2 className="w-3 h-3 text-emerald-800 shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
 
-  if (type === 'image-observed') {
+  if (effectiveType === 'image-observed' || effectiveType === 'image') {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm ${className}`}
+        className={`stamp-open !text-[11px] !py-0.5 !px-2 flex items-center gap-1 shadow-sm ${className}`}
       >
-        <Eye className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        <Eye className="w-3 h-3 text-blue-800 shrink-0" />
         <span>{label}</span>
       </span>
     );
   }
 
-  if (type === 'ambiguous') {
+  if (effectiveType === 'ambiguous') {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-sm ${className}`}
+        className={`stamp-progress !text-[11px] !py-0.5 !px-2 flex items-center gap-1 shadow-sm ${className}`}
       >
-        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        <AlertTriangle className="w-3 h-3 text-amber-800 shrink-0" />
         <span>{label}</span>
       </span>
     );
@@ -46,9 +49,9 @@ export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, className = '
   // default: unknown
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800/60 text-slate-400 border border-slate-700/60 ${className}`}
+      className={`stamp-closed !text-[11px] !py-0.5 !px-2 flex items-center gap-1 ${className}`}
     >
-      <HelpCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+      <HelpCircle className="w-3 h-3 text-ink-500 shrink-0" />
       <span>{label}</span>
     </span>
   );
@@ -83,7 +86,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
     <div className={`space-y-3 ${className}`}>
       {statedByWitness.length > 0 && (
         <div>
-          <span className="text-[11px] font-semibold text-blue-400 uppercase tracking-wider block mb-1.5">
+          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
             Witness Stated Features
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -96,7 +99,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
 
       {observedFromImage.length > 0 && (
         <div>
-          <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider block mb-1.5">
+          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
             Image Observed Features
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -109,7 +112,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
 
       {ambiguous.length > 0 && (
         <div>
-          <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider block mb-1.5">
+          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
             Ambiguous / Conflicting
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -122,7 +125,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
 
       {unknown.length > 0 && (
         <div>
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
             Unknown / Neutral Defaults
           </span>
           <div className="flex flex-wrap gap-1.5">

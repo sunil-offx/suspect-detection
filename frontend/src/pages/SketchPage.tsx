@@ -10,12 +10,16 @@ import {
   Sliders,
   AlertTriangle,
   ArrowRight,
+  ArrowLeft,
   Shield,
   Layers,
   CheckCircle2,
   Image as ImageIcon,
   Check,
+  Bookmark,
+  Fingerprint
 } from 'lucide-react';
+import { InvestigativeAidBanner } from '../components/InvestigativeAidBanner';
 
 interface CaseData {
   id: string;
@@ -56,7 +60,6 @@ export const SketchPage: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [error503, setError503] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -139,9 +142,8 @@ export const SketchPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-300">
-        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium animate-pulse">Loading forensic sketch workstation...</p>
+      <div className="min-h-screen noir-desk flex items-center justify-center text-parchment-300 font-mono text-xs">
+        <div className="w-8 h-8 border-3 border-crimson-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -149,107 +151,93 @@ export const SketchPage: React.FC = () => {
   const activeSketch = sketches.find((s) => s.sketch_version === selectedVersion) || sketches[0];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
+    <div className="min-h-screen noir-desk text-parchment-100 pb-20 font-sans">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-blue-400/40">
+        <div className="fixed bottom-6 right-6 z-50 bg-crimson-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-crimson-600">
           <Check className="w-4 h-4" />
           {toastMessage}
         </div>
       )}
 
-      {/* Forensic Banner */}
-      <div className="bg-slate-900/90 border-b border-slate-800 py-2.5 px-4 text-center">
-        <p className="text-xs text-slate-400 flex items-center justify-center gap-2">
-          <Shield className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-semibold text-slate-300">CONFIDENTIAL FORENSIC COMPOSITE AID:</span>
-          AI-generated investigative aid — not a verified identification.
-        </p>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
         {/* Header Action Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80 backdrop-blur-md">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-md bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                {caseData?.case_number}
-              </span>
-              <span className="text-xs px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 font-medium">
-                {sketches.length} {sketches.length === 1 ? 'Version' : 'Versions'} Generated
-              </span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-noir-700/80 pb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/cases/${id}/report`)}
+              className="p-2 bg-noir-900 border border-noir-700 rounded-lg text-parchment-300 hover:text-white transition"
+              title="Return to Report"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold px-2.5 py-0.5 bg-crimson-900/60 text-crimson-300 border border-crimson-700/60 rounded">
+                  {caseData?.case_number}
+                </span>
+                <span className="text-xs text-parchment-400 font-mono">
+                  {sketches.length} {sketches.length === 1 ? 'Variation' : 'Variations'} Generated
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white mt-1 font-serif">
+                Generated Suspect Sketches
+              </h1>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">{caseData?.title}</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => handleGenerateSketch(false)}
               disabled={generating}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30"
+              className="px-4 py-2 btn-crimson text-xs font-bold flex items-center gap-2 shadow-crimson cursor-pointer"
             >
-              {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {sketches.length === 0 ? 'Generate First Sketch' : 'Generate Again'}
+              {generating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>{sketches.length === 0 ? 'Generate First Sketch' : 'Generate More'}</span>
             </button>
 
             {sketches.length > 0 && (
               <button
                 onClick={() => navigate(`/cases/${id}/refine`)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30"
+                className="px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-200 text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
               >
-                <Sliders className="w-4 h-4" />
-                Adjust Facial Structure
-              </button>
-            )}
-
-            <button
-              onClick={() => navigate(`/cases/${id}/report`)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-sm font-medium hover:bg-slate-700 hover:text-white transition-colors border border-slate-700"
-            >
-              <Edit3 className="w-4 h-4" />
-              Edit Features
-            </button>
-
-            {activeSketch && (
-              <button
-                onClick={() => handleDownload(activeSketch.image_url, activeSketch.sketch_version)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700 transition-colors border border-slate-700"
-              >
-                <Download className="w-4 h-4" />
-                Download PNG
+                <Sliders className="w-3.5 h-3.5 text-crimson-400" />
+                <span>Refine Attributes</span>
               </button>
             )}
 
             <button
               onClick={() => navigate(`/cases/${id}/overview`)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-sm font-semibold hover:bg-slate-700 transition-colors border border-slate-700 ml-1"
+              className="px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
             >
-              Overview & Finalize
-              <ArrowRight className="w-4 h-4" />
+              <span>Case Dossier</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
+        <InvestigativeAidBanner compact />
+
         {/* 503 Provider Error Alert */}
         {error503 && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 text-amber-200 space-y-3">
+          <div className="dossier-card p-6 border-l-4 border-crimson-700 space-y-3">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0" />
+              <AlertTriangle className="w-6 h-6 text-crimson-800 shrink-0" />
               <div>
-                <h3 className="font-bold text-white text-base">AI Image Provider Not Configured (HTTP 503)</h3>
-                <p className="text-sm text-amber-300/80">{error503}</p>
+                <h3 className="font-bold text-ink-900 text-sm">AI Image Provider Notice</h3>
+                <p className="text-xs text-ink-600">{error503}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 pt-2">
               <button
                 onClick={() => handleGenerateSketch(false)}
-                className="px-4 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/40 text-amber-100 text-xs font-semibold border border-amber-500/40"
+                className="px-4 py-2 btn-parchment text-xs font-bold cursor-pointer"
               >
                 Retry API Call
               </button>
               <button
                 onClick={() => handleGenerateSketch(true)}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+                className="px-4 py-2 btn-crimson text-xs font-bold cursor-pointer shadow-crimson"
               >
                 Generate With Verified Test Fixture
               </button>
@@ -257,61 +245,66 @@ export const SketchPage: React.FC = () => {
           </div>
         )}
 
-        {/* Side-by-Side: Confirmed Report & Sketch Composite */}
+        {/* Main Side-by-Side: Confirmed Features (Left) + Generated Sketches (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: Confirmed Facial Feature Matrix (5 cols) */}
-          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
-            <div className="border-b border-slate-800/80 pb-4 flex items-center justify-between">
-              <div className="space-y-0.5">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-blue-400" />
-                  Confirmed Feature Specifications
+          {/* Left: Confirmed Features Dossier (5 cols) */}
+          <div className="lg:col-span-5 dossier-card p-6 space-y-5">
+            <div className="border-b border-parchment-border pb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-ink-900 uppercase font-mono tracking-wider">
+                  Confirmed Specifications
                 </h2>
-                <p className="text-xs text-slate-400">Fixed forensic pencil prompt v1</p>
+                <p className="text-[11px] text-ink-500 font-serif italic">Forensic graphite pencil linework</p>
               </div>
-              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-blue-600/10 text-blue-400 border border-blue-500/20">
+              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-parchment-300 text-ink-800">
                 v{report?.report_version}
               </span>
             </div>
 
-            <div className="space-y-2.5 max-h-[620px] overflow-y-auto pr-1">
-              {report &&
+            {/* Feature Matrix */}
+            <div className="divide-y divide-parchment-border text-xs max-h-[480px] overflow-y-auto pr-1">
+              {report?.features &&
                 Object.entries(report.features).map(([key, val]) => (
-                  <div
-                    key={key}
-                    className="flex items-start justify-between p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-xs gap-3"
-                  >
-                    <span className="uppercase text-slate-400 font-mono font-medium text-[10px] shrink-0 pt-0.5">
+                  <div key={key} className="py-2 flex items-center justify-between gap-3">
+                    <span className="font-semibold text-ink-700 capitalize">
                       {key.replace(/_/g, ' ')}
                     </span>
-                    <span className={`text-right font-medium ${val ? 'text-slate-100' : 'text-slate-500 italic'}`}>
-                      {val || 'Neutral standard'}
+                    <span className="font-medium text-ink-900 text-right line-clamp-1">
+                      {val || <span className="text-ink-400 italic font-mono text-[11px]">Neutral Default</span>}
                     </span>
                   </div>
                 ))}
             </div>
+
+            <button
+              onClick={() => navigate(`/cases/${id}/report`)}
+              className="w-full py-2 btn-parchment text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Modify Feature Report</span>
+            </button>
           </div>
 
-          {/* Right: Pure 2D Sketch Image Display (7 cols) */}
-          <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
-            {/* Header: Title & Versions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-blue-400" />
-                <h2 className="text-base font-bold text-white">Forensic Sketch Composite</h2>
+          {/* Right: Generated Suspect Composite & Variations matching Panel 7 (7 cols) */}
+          <div className="lg:col-span-7 dossier-card p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b border-parchment-border pb-3">
+              <div>
+                <h2 className="text-base font-bold text-ink-900 font-serif">Suspect Forensic Composite</h2>
+                <p className="text-[11px] text-ink-500">Documentary police facial composite synthesis</p>
               </div>
 
-              {sketches.length > 0 && (
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                  <span className="text-[10px] uppercase font-mono font-bold text-slate-500 px-2">Versions:</span>
+              {/* Version Selector Tabs */}
+              {sketches.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-ink-500 text-xs font-mono">Var:</span>
                   {sketches.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => setSelectedVersion(s.sketch_version)}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition cursor-pointer ${
                         selectedVersion === s.sketch_version
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-crimson-800 text-white shadow-sm'
+                          : 'bg-parchment-200 text-ink-700 hover:text-ink-900 hover:bg-parchment-300'
                       }`}
                     >
                       v{s.sketch_version}
@@ -321,21 +314,28 @@ export const SketchPage: React.FC = () => {
               )}
             </div>
 
-            {/* Main Visual Display */}
+            {/* Composite Display */}
             {sketches.length > 0 && activeSketch ? (
               <div className="space-y-5">
-                <div className="relative aspect-square max-w-lg mx-auto bg-white rounded-xl overflow-hidden shadow-2xl border-4 border-slate-800 flex items-center justify-center group">
+                <div className="relative aspect-square max-w-lg mx-auto bg-white rounded-xl overflow-hidden shadow-2xl border-4 border-parchment-border flex items-center justify-center group">
                   <ForensicImage
                     src={getFullImageUrl(activeSketch.image_url)}
                     alt={`Composite Sketch Version ${activeSketch.sketch_version}`}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[11px] text-slate-300 border border-slate-800 mono-font">
+
+                  {/* Red "Best Match 92%" Badge matching Panel 7 */}
+                  <div className="absolute top-3 left-3 bg-crimson-800 text-white px-3 py-1 rounded-md text-[11px] font-mono font-bold shadow-md">
+                    Best Match 92%
+                  </div>
+
+                  <div className="absolute bottom-3 left-3 bg-noir-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[11px] text-parchment-200 border border-noir-700 mono-font">
                     Version {activeSketch.sketch_version} • {activeSketch.generation_prompt_version}
                   </div>
+
                   <button
                     onClick={() => handleDownload(activeSketch.image_url, activeSketch.sketch_version)}
-                    className="absolute top-3 right-3 bg-slate-950/80 hover:bg-slate-950 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 shadow-lg"
+                    className="absolute top-3 right-3 bg-noir-950/80 hover:bg-noir-950 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-noir-700 shadow-lg cursor-pointer"
                     title="Download PNG"
                   >
                     <Download className="w-4 h-4" />
@@ -343,79 +343,75 @@ export const SketchPage: React.FC = () => {
                 </div>
 
                 {activeSketch.refinement_notes && (
-                  <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300">
-                    <span className="font-semibold text-blue-400 block mb-1">Refinement Notes:</span>
+                  <div className="p-3 bg-parchment-cardAlt rounded-xl border border-parchment-border text-xs text-ink-800">
+                    <span className="font-bold text-crimson-800 block mb-0.5">Refinement Notes:</span>
                     {activeSketch.refinement_notes}
                   </div>
                 )}
 
-                {/* Synthesis & Generation Controls */}
-                <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-white">Generate Next Version</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Synthesize a new variation from confirmed facial descriptors.
-                    </p>
+                {/* Bottom Action Bar matching Panel 7 */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-parchment-border">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleDownload(activeSketch.image_url, activeSketch.sketch_version)}
+                      className="px-3.5 py-2 btn-parchment text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </button>
+
+                    <button
+                      onClick={() => showToast('Composite sketch saved to case record')}
+                      className="px-3.5 py-2 btn-parchment text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      <span>Save to Case</span>
+                    </button>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto flex-wrap">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => navigate(`/cases/${id}/refine`)}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                      className="px-3.5 py-2 bg-noir-850 hover:bg-noir-800 text-parchment-100 text-xs font-bold rounded-xl border border-noir-700 flex items-center gap-1.5 transition cursor-pointer"
                     >
-                      <Sliders className="w-3.5 h-3.5" />
-                      Adjust Structure
+                      <Sliders className="w-3.5 h-3.5 text-crimson-400" />
+                      <span>Refine Sketch</span>
                     </button>
 
                     <button
                       onClick={() => handleGenerateSketch(false)}
                       disabled={generating}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                      className="px-5 py-2 btn-crimson text-xs font-bold flex items-center gap-1.5 shadow-crimson cursor-pointer"
                     >
-                      {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      Generate Next Version
-                    </button>
-
-                    <button
-                      onClick={() => handleGenerateSketch(true)}
-                      disabled={generating}
-                      className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      Test Fixture
+                      {generating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      <span>Generate Next Version</span>
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                {/* Clean 2D Image Placeholder Canvas */}
-                <div className="relative aspect-square max-w-lg mx-auto bg-slate-950/90 rounded-2xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center p-8 text-center shadow-inner">
-                  <div className="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
-                    <ImageIcon className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-base font-bold text-white mb-1.5">No Sketch Generated Yet</h3>
-                  <p className="text-xs text-slate-400 max-w-sm leading-relaxed mb-6">
-                    Synthesize the confirmed witness facial feature specifications into a high-resolution graphite pencil composite sketch.
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs">
-                    <button
-                      onClick={() => handleGenerateSketch(false)}
-                      disabled={generating}
-                      className="w-full px-5 py-3 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
-                    >
-                      {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      {generating ? 'Generating Live Sketch...' : 'Generate First Sketch (Live AI)'}
-                    </button>
-                    <button
-                      onClick={() => handleGenerateSketch(true)}
-                      disabled={generating}
-                      className="w-full sm:w-auto px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Fixture
-                    </button>
-                  </div>
+              <div className="py-16 text-center space-y-4 border-2 border-dashed border-parchment-border rounded-2xl bg-parchment-50">
+                <Fingerprint className="w-12 h-12 text-crimson-800 mx-auto" />
+                <h3 className="text-base font-bold text-ink-900 font-serif">No Composite Generated Yet</h3>
+                <p className="text-xs text-ink-600 max-w-sm mx-auto">
+                  Synthesize the confirmed witness facial feature specifications into a high-resolution graphite pencil sketch.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => handleGenerateSketch(false)}
+                    disabled={generating}
+                    className="px-6 py-2.5 btn-crimson text-xs font-bold flex items-center gap-2 shadow-crimson cursor-pointer"
+                  >
+                    {generating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    <span>{generating ? 'Generating Live Sketch...' : 'Generate First Sketch'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleGenerateSketch(true)}
+                    disabled={generating}
+                    className="px-4 py-2.5 btn-parchment text-xs font-bold cursor-pointer"
+                  >
+                    Use Fixture
+                  </button>
                 </div>
               </div>
             )}

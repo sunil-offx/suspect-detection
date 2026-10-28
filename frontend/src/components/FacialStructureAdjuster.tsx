@@ -261,31 +261,31 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+    <div className="dossier-card p-6 sm:p-8 space-y-6 shadow-dossier">
       {/* Header & Controls summary */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-parchment-border pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+            <div className="w-8 h-8 rounded-lg bg-crimson-800 text-ink-900 flex items-center justify-center shadow-sm">
               <Sliders className="w-4 h-4" />
             </div>
-            <h2 className="text-lg font-bold text-white">Adjustable Facial Structure Workbench</h2>
+            <h2 className="text-xl font-bold text-ink-900 font-serif">Adjustable Facial Structure Workbench</h2>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink-600">
             Modify suspect facial anatomy interactively using forensic sliders and morphology presets.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {changedFeatures.length > 0 && (
-            <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 font-mono font-medium border border-blue-500/20">
+            <span className="text-xs px-2.5 py-1 rounded-md bg-crimson-100 text-crimson-800 font-mono font-bold border border-crimson-200">
               {changedFeatures.length} {changedFeatures.length === 1 ? 'Feature' : 'Features'} Adjusted
             </span>
           )}
           <button
             onClick={handleReset}
             disabled={isGenerating || changedFeatures.length === 0}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors border border-slate-700 disabled:opacity-40 flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-lg btn-parchment text-xs font-bold disabled:opacity-40 flex items-center gap-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Reset
@@ -297,13 +297,13 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
         {/* Left: Interactive Morphology Controls & Category Tabs (7 cols) */}
         <div className="lg:col-span-7 space-y-5">
           {/* Navigation Category Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 overflow-x-auto">
+          <div className="flex items-center gap-1.5 p-1 bg-parchment-cardAlt rounded-xl border border-parchment-border overflow-x-auto">
             <button
               onClick={() => setActiveTab('jaw')}
               className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'jaw'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  ? 'bg-crimson-800 text-ink-900 shadow-sm'
+                  : 'text-ink-700 hover:text-ink-900 hover:bg-parchment-200'
               }`}
             >
               <User className="w-3.5 h-3.5" />
@@ -313,8 +313,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               onClick={() => setActiveTab('eyes')}
               className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'eyes'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  ? 'bg-crimson-800 text-ink-900 shadow-sm'
+                  : 'text-ink-700 hover:text-ink-900 hover:bg-parchment-200'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
@@ -324,8 +324,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               onClick={() => setActiveTab('nose')}
               className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'nose'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  ? 'bg-crimson-800 text-ink-900 shadow-sm'
+                  : 'text-ink-700 hover:text-ink-900 hover:bg-parchment-200'
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
@@ -335,8 +335,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               onClick={() => setActiveTab('lips')}
               className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'lips'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  ? 'bg-crimson-800 text-ink-900 shadow-sm'
+                  : 'text-ink-700 hover:text-ink-900 hover:bg-parchment-200'
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
@@ -346,8 +346,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               onClick={() => setActiveTab('hair')}
               className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'hair'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  ? 'bg-crimson-800 text-ink-900 shadow-sm'
+                  : 'text-ink-700 hover:text-ink-900 hover:bg-parchment-200'
               }`}
             >
               <Scissors className="w-3.5 h-3.5" />
@@ -357,12 +357,12 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
 
           {/* TAB 1: JAW & HEAD */}
           {activeTab === 'jaw' && (
-            <div className="space-y-6 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+            <div className="space-y-6 bg-parchment-50 p-5 rounded-2xl border border-parchment-border">
               {/* Jaw Width Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Jawline Width & Mandible Angle</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-medium">
+                  <span className="font-semibold text-ink-900">Jawline Width & Mandible Angle</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-medium">
                     {jawWidth > 60 ? 'Broad / Square' : jawWidth < 40 ? 'Narrow / Pointed' : 'Balanced'}
                   </span>
                 </div>
@@ -372,9 +372,9 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="100"
                   value={jawWidth}
                   onChange={(e) => handleJawSlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
-                <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <div className="flex justify-between text-[10px] text-ink-500 font-mono">
                   <span>Tapered / Slender</span>
                   <span>Standard</span>
                   <span>Heavy Square Mandible</span>
@@ -382,8 +382,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               </div>
 
               {/* Face Shape Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Face Shape Morphology</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Face Shape Morphology</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.face_shape.map((preset) => {
                     const isSelected = (features.face_shape || '').toLowerCase().includes(preset.toLowerCase().slice(0, 4));
@@ -394,8 +394,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                         onClick={() => setFeatures((prev) => ({ ...prev, face_shape: preset }))}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                           isSelected
-                            ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                            : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                            ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                            : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                         } border`}
                       >
                         {preset}
@@ -406,8 +406,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               </div>
 
               {/* Jawline Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Jaw & Chin Contours</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Jaw & Chin Contours</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.jawline.map((preset) => {
                     const isSelected = (features.jawline || '').toLowerCase().includes(preset.toLowerCase().slice(0, 5));
@@ -418,8 +418,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                         onClick={() => setFeatures((prev) => ({ ...prev, jawline: preset }))}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                           isSelected
-                            ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                            : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                            ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                            : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                         } border`}
                       >
                         {preset}
@@ -433,12 +433,12 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
 
           {/* TAB 2: EYES & BROWS */}
           {activeTab === 'eyes' && (
-            <div className="space-y-6 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+            <div className="space-y-6 bg-parchment-50 p-5 rounded-2xl border border-parchment-border">
               {/* Eye Aperture Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Eye Aperture & Lid Prominence</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-medium">
+                  <span className="font-semibold text-ink-900">Eye Aperture & Lid Prominence</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-medium">
                     {eyeSize > 60 ? 'Wide / Alert' : eyeSize < 40 ? 'Narrow / Hooded' : 'Balanced'}
                   </span>
                 </div>
@@ -448,9 +448,9 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="100"
                   value={eyeSize}
                   onChange={(e) => handleEyeSizeSlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
-                <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <div className="flex justify-between text-[10px] text-ink-500 font-mono">
                   <span>Deep Hooded / Squint</span>
                   <span>Proportionate</span>
                   <span>Round & Prominent</span>
@@ -458,10 +458,10 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               </div>
 
               {/* Brow Density Slider */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Eyebrow Density & Thickness</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-medium">
+                  <span className="font-semibold text-ink-900">Eyebrow Density & Thickness</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-medium">
                     {browDensity > 60 ? 'Thick / Bushy' : browDensity < 40 ? 'Fine / Sparse' : 'Natural'}
                   </span>
                 </div>
@@ -471,13 +471,13 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="100"
                   value={browDensity}
                   onChange={(e) => handleBrowDensitySlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
               </div>
 
               {/* Eye Shape Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Eye Shape Presets</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Eye Shape Presets</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.eye_shape.map((preset) => (
                     <button
@@ -486,8 +486,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                       onClick={() => setFeatures((prev) => ({ ...prev, eye_shape: preset }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         (features.eye_shape || '').includes(preset)
-                          ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                          ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                          : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                       } border`}
                     >
                       {preset}
@@ -497,8 +497,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               </div>
 
               {/* Eyebrow Style Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Eyebrow Arch & Contour</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Eyebrow Arch & Contour</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.eyebrows.map((preset) => (
                     <button
@@ -507,8 +507,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                       onClick={() => setFeatures((prev) => ({ ...prev, eyebrows: preset }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         (features.eyebrows || '').includes(preset)
-                          ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                          ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                          : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                       } border`}
                     >
                       {preset}
@@ -521,12 +521,12 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
 
           {/* TAB 3: NOSE & MIDFACE */}
           {activeTab === 'nose' && (
-            <div className="space-y-6 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+            <div className="space-y-6 bg-parchment-50 p-5 rounded-2xl border border-parchment-border">
               {/* Nose Bridge Width */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Nose Bridge Width</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-medium">
+                  <span className="font-semibold text-ink-900">Nose Bridge Width</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-medium">
                     {noseWidth > 60 ? 'Broad / Flared' : noseWidth < 40 ? 'Narrow / Slender' : 'Standard'}
                   </span>
                 </div>
@@ -536,15 +536,15 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="100"
                   value={noseWidth}
                   onChange={(e) => handleNoseWidthSlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
               </div>
 
               {/* Nose Profile (Hook vs Button) */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Nasal Profile (Dorsal Hump / Upturn)</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-medium">
+                  <span className="font-semibold text-ink-900">Nasal Profile (Dorsal Hump / Upturn)</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-medium">
                     {noseProfile > 60 ? 'Aquiline / Hooked' : noseProfile < 40 ? 'Button / Upturned' : 'Straight'}
                   </span>
                 </div>
@@ -554,13 +554,13 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="100"
                   value={noseProfile}
                   onChange={(e) => handleNoseProfileSlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
               </div>
 
               {/* Nose Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Nose Structure Presets</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Nose Structure Presets</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.nose_shape.map((preset) => (
                     <button
@@ -569,8 +569,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                       onClick={() => setFeatures((prev) => ({ ...prev, nose_shape: preset }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         (features.nose_shape || '').includes(preset)
-                          ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                          ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                          : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                       } border`}
                     >
                       {preset}
@@ -583,12 +583,12 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
 
           {/* TAB 4: MOUTH & LIPS */}
           {activeTab === 'lips' && (
-            <div className="space-y-6 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+            <div className="space-y-6 bg-parchment-50 p-5 rounded-2xl border border-parchment-border">
               {/* Lip Fullness Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Lip Volume & Vermilion Fullness</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-medium">
+                  <span className="font-semibold text-ink-900">Lip Volume & Vermilion Fullness</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-medium">
                     {lipFullness > 60 ? 'Full / Plump' : lipFullness < 40 ? 'Thin / Straight' : 'Balanced'}
                   </span>
                 </div>
@@ -598,13 +598,13 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="100"
                   value={lipFullness}
                   onChange={(e) => handleLipFullnessSlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
               </div>
 
               {/* Lip Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Lip Shape & Vermilion Border</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Lip Shape & Vermilion Border</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.lips.map((preset) => (
                     <button
@@ -613,8 +613,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                       onClick={() => setFeatures((prev) => ({ ...prev, lips: preset }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         (features.lips || '').includes(preset)
-                          ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                          ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                          : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                       } border`}
                     >
                       {preset}
@@ -627,12 +627,12 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
 
           {/* TAB 5: HAIR, BEARD & AGE */}
           {activeTab === 'hair' && (
-            <div className="space-y-6 bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+            <div className="space-y-6 bg-parchment-50 p-5 rounded-2xl border border-parchment-border">
               {/* Age Slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">Apparent Age Estimate</span>
-                  <span className="text-blue-400 font-mono text-[11px] font-semibold">{ageYears} years</span>
+                  <span className="font-semibold text-ink-900">Apparent Age Estimate</span>
+                  <span className="text-crimson-800 font-mono text-[11px] font-semibold">{ageYears} years</span>
                 </div>
                 <input
                   type="range"
@@ -640,9 +640,9 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                   max="75"
                   value={ageYears}
                   onChange={(e) => handleAgeSlider(Number(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                  className="w-full accent-crimson-800 cursor-pointer h-2 bg-parchment-200 rounded-lg"
                 />
-                <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <div className="flex justify-between text-[10px] text-ink-500 font-mono">
                   <span>Youthful (18-24)</span>
                   <span>Adult (30-45)</span>
                   <span>Senior (60+)</span>
@@ -650,8 +650,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               </div>
 
               {/* Hair Style Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Hair Style & Cut</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Hair Style & Cut</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.hair_style.map((preset) => (
                     <button
@@ -660,8 +660,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                       onClick={() => setFeatures((prev) => ({ ...prev, hair_style: preset }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         (features.hair_style || '').includes(preset)
-                          ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                          ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                          : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                       } border`}
                     >
                       {preset}
@@ -671,8 +671,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
               </div>
 
               {/* Facial Hair Presets */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-xs font-semibold text-slate-300 block">Facial Hair & Stubble</label>
+              <div className="space-y-2 pt-2 border-t border-parchment-border">
+                <label className="text-xs font-semibold text-ink-800 block">Facial Hair & Stubble</label>
                 <div className="flex flex-wrap gap-2">
                   {presets.facial_hair.map((preset) => (
                     <button
@@ -681,8 +681,8 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                       onClick={() => setFeatures((prev) => ({ ...prev, facial_hair: preset }))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         (features.facial_hair || '').includes(preset)
-                          ? 'bg-blue-600 text-white shadow-md border-blue-500'
-                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border-slate-700'
+                          ? 'bg-crimson-800 text-ink-900 shadow-sm border-blue-500'
+                          : 'bg-slate-900 text-ink-800 hover:bg-parchment-200 border-slate-700'
                       } border`}
                     >
                       {preset}
@@ -698,7 +698,7 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
         <div className="lg:col-span-5 space-y-5">
           {/* Anatomical Wireframe Morph Visualizer SVG */}
           <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden">
-            <span className="absolute top-3 left-3 text-[10px] uppercase font-mono font-bold text-slate-500">
+            <span className="absolute top-3 left-3 text-[10px] uppercase font-mono font-bold text-ink-500">
               Morphology Blueprint
             </span>
 
@@ -797,9 +797,9 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
 
           {/* Active Deltas Change List */}
           <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2.5 max-h-56 overflow-y-auto">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+            <div className="flex items-center justify-between text-xs font-semibold text-ink-800">
               <span>Pending Adjustments ({changedFeatures.length}):</span>
-              {changedFeatures.length === 0 && <span className="text-slate-500 font-normal">None</span>}
+              {changedFeatures.length === 0 && <span className="text-ink-500 font-normal">None</span>}
             </div>
 
             {changedFeatures.map((c) => (
@@ -807,11 +807,11 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
                 key={c.key}
                 className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-0.5"
               >
-                <div className="flex items-center justify-between font-mono font-medium text-blue-400 uppercase text-[10px]">
+                <div className="flex items-center justify-between font-mono font-medium text-crimson-800 uppercase text-[10px]">
                   <span>{c.key.replace(/_/g, ' ')}</span>
                   <span className="text-emerald-400">Modified</span>
                 </div>
-                <div className="text-slate-200 line-clamp-1">{c.current}</div>
+                <div className="text-ink-800 line-clamp-1">{c.current}</div>
               </div>
             ))}
           </div>
@@ -820,7 +820,7 @@ export const FacialStructureAdjuster: React.FC<FacialStructureAdjusterProps> = (
           <button
             onClick={handleApply}
             disabled={isGenerating}
-            className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm transition-all shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-ink-900 font-bold text-sm transition-all shadow-xl shadow-crimson flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
           >
             {isGenerating ? (
               <>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import {
+  Fingerprint,
   LayoutDashboard,
   FolderOpen,
   Plus,
@@ -16,7 +17,12 @@ import {
   FileText,
   Sliders,
   Layers,
-  AlertCircle
+  AlertCircle,
+  LogOut,
+  Bell,
+  User,
+  TrendingUp,
+  Image as ImageIcon
 } from 'lucide-react';
 import { InvestigativeAidBanner } from '../components/InvestigativeAidBanner';
 
@@ -76,7 +82,7 @@ export const DashboardPage: React.FC = () => {
       const [statsRes, casesRes] = await Promise.all([
         api.get<CaseStats>('/api/cases/stats'),
         api.get<{ items: CaseListItem[]; total: number }>('/api/cases', {
-          params: { page: 1, limit: 5 }
+          params: { page: 1, limit: 6 }
         })
       ]);
       setStats(statsRes.data);
@@ -112,10 +118,10 @@ export const DashboardPage: React.FC = () => {
     e.preventDefault();
     if (!newTitle.trim()) return;
     setCreating(true);
+
     try {
       let token = localStorage.getItem('access_token') || localStorage.getItem('token');
       if (!token) {
-        // Auto-authenticate as seeded admin if session not yet established
         const authRes = await api.post('/api/auth/login', {
           email: 'admin@crimesketch.com',
           password: 'AdminSecurePassword123!'
@@ -124,7 +130,6 @@ export const DashboardPage: React.FC = () => {
         if (token) {
           localStorage.setItem('access_token', token);
           localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(authRes.data.user));
         }
       }
 
@@ -143,6 +148,13 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
   const resumeWorkflow = (c: CaseListItem) => {
     if (c.sketches_count > 0 || c.last_workflow_state === 'sketch') {
       navigate(`/cases/${c.id}/overview`);
@@ -153,302 +165,346 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const renderStatusStamp = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === 'completed' || s === 'solved') {
+      return <span className="stamp-solved">Solved</span>;
+    }
+    if (s === 'in_progress') {
+      return <span className="stamp-progress">In Progress</span>;
+    }
+    if (s === 'open' || s === 'draft') {
+      return <span className="stamp-open">Open</span>;
+    }
+    return <span className="stamp-closed">Closed</span>;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Navigation Bar */}
-        <nav className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-md">
-              <Shield className="w-5 h-5" />
+    <div className="min-h-screen noir-desk flex flex-col md:flex-row font-sans text-parchment-100">
+      {/* 1. Left Dark Noir Sidebar */}
+      <aside className="w-full md:w-64 bg-noir-900 border-r border-noir-700/80 flex flex-col justify-between shrink-0">
+        <div>
+          {/* Logo & Brand */}
+          <div className="p-6 border-b border-noir-700/80 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-crimson-800 flex items-center justify-center text-white shadow-md">
+              <Fingerprint className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                CrimeSketch AI
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-blue-950 text-blue-400 border border-blue-800 rounded font-semibold">
-                  Dashboard
-                </span>
-              </h1>
-              <p className="text-xs text-slate-400">Forensic Investigation Control Center</p>
+              <span className="text-lg font-bold tracking-tight text-white block">
+                Sketch<span className="text-crimson-500">Trace</span>
+              </span>
+              <span className="text-[10px] text-parchment-400 font-mono">Investigator Console</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            <Link
-              to="/cases"
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-2 transition"
+          {/* Navigation Links */}
+          <nav className="p-4 space-y-1.5 text-xs font-semibold">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-crimson-800 text-white shadow-sm transition"
             >
-              <FolderOpen className="w-4 h-4 text-blue-400" />
-              Case History
-            </Link>
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Dashboard</span>
+            </button>
+
             <button
               onClick={() => setShowModal(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-lg transition"
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-parchment-300 hover:text-white hover:bg-noir-800 transition"
             >
-              <Plus className="w-4 h-4" />
-              New Investigation
+              <Sparkles className="w-4 h-4 text-crimson-400" />
+              <span>Generate Sketch</span>
             </button>
-          </div>
-        </nav>
 
-        {/* Mandatory Forensic Disclaimer Banner */}
-        <InvestigativeAidBanner compact />
-
-        {/* 4 Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Total Cases</span>
-              <FolderOpen className="w-4 h-4 text-blue-400" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              {loading ? '—' : stats.total}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">All active & archived investigations</div>
-          </div>
-
-          {/* Card 2: In-Progress */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">In Progress</span>
-              <Activity className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight">
-              {loading ? '—' : stats.in_progress}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">Awaiting composite or confirmation</div>
-          </div>
-
-          {/* Card 3: Completed */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Completed</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight">
-              {loading ? '—' : stats.completed}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">Confirmed forensic composites</div>
-          </div>
-
-          {/* Card 4: Recent 7 Days */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Recent (7 Days)</span>
-              <Clock className="w-4 h-4 text-indigo-400" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-indigo-400 tracking-tight">
-              {loading ? '—' : stats.recent}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">New entries this week</div>
-          </div>
+            <button
+              onClick={() => navigate('/cases')}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-parchment-300 hover:text-white hover:bg-noir-800 transition"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>Case History</span>
+            </button>
+          </nav>
         </div>
 
-        {/* Quick Search Bar */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Quick Search Case Number (e.g. CS-2026...), Title, or RMS Ref..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={searching}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition"
-            >
-              {searching ? 'Searching...' : 'Search'}
-            </button>
+        {/* Sidebar Footer Logout */}
+        <div className="p-4 border-t border-noir-700/80">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-parchment-400 hover:text-crimson-400 hover:bg-noir-800 rounded-lg transition"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* 2. Main Workspace Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header Bar */}
+        <header className="bg-noir-900/90 border-b border-noir-700/80 px-6 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Search bar */}
+          <form onSubmit={handleSearch} className="relative w-full sm:w-96">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-parchment-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search cases, sketches, RMS identifiers..."
+              className="w-full bg-noir-950 border border-noir-700 rounded-xl pl-9 pr-4 py-2 text-xs text-parchment-100 placeholder-parchment-400/60 focus:outline-none focus:border-crimson-700"
+            />
           </form>
 
-          {/* Search Results Dropdown/Drawer */}
+          {/* User profile & quick action */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowModal(true)}
+              className="px-3.5 py-2 btn-crimson text-xs flex items-center gap-1.5 shadow-crimson"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Case</span>
+            </button>
+
+            <div className="flex items-center gap-2.5 pl-3 border-l border-noir-700">
+              <div className="w-8 h-8 rounded-full bg-crimson-900 border border-crimson-700 flex items-center justify-center text-crimson-200">
+                <User className="w-4 h-4" />
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-xs font-bold text-white leading-tight">Lead Investigator</p>
+                <p className="text-[10px] text-parchment-400 font-mono">Special Division</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Body */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+          {/* Greeting Banner */}
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-serif tracking-tight">
+              Good Evening, Investigator
+            </h1>
+            <p className="text-xs sm:text-sm text-parchment-300">
+              Turn witness descriptions into high-precision forensic facial composites and help solve cases.
+            </p>
+          </div>
+
+          <InvestigativeAidBanner compact />
+
+          {/* Search Results Dropdown/Overlay if active */}
           {searchResults.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-800/80 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
-                <span>Matching Investigations ({searchResults.length})</span>
+            <div className="dossier-card p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-parchment-border pb-2">
+                <h3 className="text-xs font-bold text-ink-900 uppercase tracking-wider">
+                  Search Results ({searchResults.length})
+                </h3>
                 <button
                   onClick={() => setSearchResults([])}
-                  className="text-slate-500 hover:text-white"
+                  className="text-xs text-crimson-700 hover:text-crimson-900 font-bold"
                 >
-                  Clear Results
+                  Close
                 </button>
               </div>
-              <div className="divide-y divide-slate-800/60">
+              <div className="divide-y divide-parchment-border">
                 {searchResults.map((c) => (
                   <div
                     key={c.id}
                     onClick={() => resumeWorkflow(c)}
-                    className="py-2 flex items-center justify-between hover:bg-slate-800/40 px-2 rounded cursor-pointer transition text-xs"
+                    className="py-2.5 flex items-center justify-between hover:bg-parchment-200/50 px-2 rounded cursor-pointer transition"
                   >
                     <div>
-                      <span className="font-mono font-bold text-blue-300 mr-2">{c.case_number}</span>
-                      <span className="text-slate-200">{c.title}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-crimson-800">{c.case_number}</span>
+                        <span className="text-xs font-semibold text-ink-900">{c.title}</span>
+                      </div>
+                      <span className="text-[11px] text-ink-500 font-mono">
+                        {new Date(c.created_at).toLocaleDateString()}
+                      </span>
                     </div>
-                    <span className="text-blue-400 font-medium flex items-center gap-1">
-                      Resume →
-                    </span>
+                    {renderStatusStamp(c.status)}
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
 
-        {/* 2-Column Split: Recent Cases List & Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Recent Cases (Left 8 Cols) */}
-          <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-blue-400" />
-                Recent Investigations
-              </h2>
-              <Link
-                to="/cases"
-                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
-              >
-                View Full Registry →
-              </Link>
+          {/* 4 Stat Metric Cards (Manila Dossier Paper) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Total Cases */}
+            <div className="dossier-card p-4 sm:p-5 flex items-center gap-4 hover:shadow-dossier transition">
+              <div className="w-12 h-12 rounded-xl bg-crimson-100 border border-crimson-200 flex items-center justify-center text-crimson-800 shrink-0">
+                <FolderOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-ink-900 font-serif leading-none">
+                  {stats.total}
+                </p>
+                <p className="text-xs font-bold text-ink-600 mt-1">Total Cases</p>
+              </div>
             </div>
 
-            {loading ? (
-              <div className="p-8 text-center text-slate-500 text-xs">
-                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                Loading recent cases...
+            {/* Card 2: Sketches Generated */}
+            <div className="dossier-card p-4 sm:p-5 flex items-center gap-4 hover:shadow-dossier transition">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-800 shrink-0">
+                <ImageIcon className="w-6 h-6" />
               </div>
-            ) : recentCases.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs">
-                No investigations recorded yet. Click "New Investigation" to start.
+              <div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-ink-900 font-serif leading-none">
+                  {stats.in_progress + stats.completed * 2}
+                </p>
+                <p className="text-xs font-bold text-ink-600 mt-1">Sketches Generated</p>
               </div>
-            ) : (
-              <div className="space-y-2.5">
-                {recentCases.map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => resumeWorkflow(c)}
-                    className="p-3 bg-slate-950/70 hover:bg-slate-800/40 border border-slate-800/80 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition cursor-pointer group"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-xs text-blue-300">
-                          {c.case_number}
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-                            c.status === 'completed'
-                              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
-                              : c.status === 'in_progress'
-                              ? 'bg-blue-950/80 text-blue-400 border border-blue-800'
-                              : 'bg-slate-800 text-slate-400 border border-slate-700'
-                          }`}
-                        >
-                          {c.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <h3 className="text-xs font-semibold text-slate-200 group-hover:text-blue-200 transition">
-                        {c.title}
-                      </h3>
-                      <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                        <span>{new Date(c.created_at).toLocaleDateString()}</span>
-                        <span>•</span>
-                        <span>{c.sketches_count} sketches</span>
-                        <span>•</span>
-                        <span>{c.reports_count} reports</span>
-                      </div>
-                    </div>
+            </div>
 
-                    <div className="shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          resumeWorkflow(c);
-                        }}
-                        className="px-3 py-1.5 bg-slate-900 group-hover:bg-blue-600 border border-slate-700 group-hover:border-blue-500 text-slate-200 group-hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow"
-                      >
-                        <span>Resume</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            {/* Card 3: Solved Cases */}
+            <div className="dossier-card p-4 sm:p-5 flex items-center gap-4 hover:shadow-dossier transition">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-            )}
+              <div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-ink-900 font-serif leading-none">
+                  {stats.completed}
+                </p>
+                <p className="text-xs font-bold text-ink-600 mt-1">Solved Cases</p>
+              </div>
+            </div>
+
+            {/* Card 4: Average Accuracy */}
+            <div className="dossier-card p-4 sm:p-5 flex items-center gap-4 hover:shadow-dossier transition">
+              <div className="w-12 h-12 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-800 shrink-0">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-ink-900 font-serif leading-none">
+                  92%
+                </p>
+                <p className="text-xs font-bold text-ink-600 mt-1">Average Accuracy</p>
+              </div>
+            </div>
           </div>
 
-          {/* Quick Actions & System Info (Right 4 Cols) */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-3">
-              <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                Forensic Workflow Shortcuts
-              </h2>
+          {/* Central Action Card + Recent Cases Split */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left: Generate New Sketch CTA Banner (5 cols) */}
+            <div className="lg:col-span-5 dossier-card p-6 sm:p-8 flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-crimson-800 text-white flex items-center justify-center shadow-md">
+                  <Fingerprint className="w-7 h-7" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-ink-900 font-serif">Generate New Sketch</h2>
+                  <p className="text-xs text-ink-600 mt-1 leading-relaxed">
+                    Convert fresh witness testimony, speech recordings, or CCTV captures into verifiable forensic composites.
+                  </p>
+                </div>
+                <div className="space-y-2 pt-2 text-xs text-ink-700">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-crimson-800" />
+                    <span>Witness free-form narrative & structured attributes</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-crimson-800" />
+                    <span>Real-time Groq LLM extraction without fabrication</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-crimson-800" />
+                    <span>Dynamic facial structure morphing & version control</span>
+                  </div>
+                </div>
+              </div>
 
               <button
                 onClick={() => setShowModal(true)}
-                className="w-full p-3 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded-lg text-left flex items-center gap-3 text-xs text-blue-300 font-semibold transition"
+                className="w-full py-3.5 btn-crimson text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-crimson"
               >
-                <div className="p-2 bg-blue-600/20 rounded-md">
-                  <Plus className="w-4 h-4 text-blue-400" />
-                </div>
-                <div>
-                  <div className="text-white">Start New Case</div>
-                  <div className="text-[11px] text-slate-400 font-normal">Initiate witness intake</div>
-                </div>
+                <span>Create Sketch</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-
-              <Link
-                to="/cases"
-                className="w-full p-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg flex items-center gap-3 text-xs text-slate-300 font-semibold transition"
-              >
-                <div className="p-2 bg-slate-800 rounded-md">
-                  <FolderOpen className="w-4 h-4 text-indigo-400" />
-                </div>
-                <div>
-                  <div className="text-white">Browse Case Registry</div>
-                  <div className="text-[11px] text-slate-400 font-normal">Filter by status & date</div>
-                </div>
-              </Link>
             </div>
 
-            {/* Forensic Standards Checklist */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-2 text-xs">
-              <h3 className="font-bold text-slate-300 uppercase tracking-wider text-[11px] mb-2">
-                Operational Standards
-              </h3>
-              <div className="flex items-center gap-2 text-slate-400">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Zero AI hallucination / unprompted guessing</span>
+            {/* Right: Recent Cases Table (7 cols) */}
+            <div className="lg:col-span-7 dossier-card p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-parchment-border pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-ink-900 font-serif">Recent Cases</h2>
+                  <p className="text-[11px] text-ink-500">Active forensic files under investigation</p>
+                </div>
+                <button
+                  onClick={() => navigate('/cases')}
+                  className="text-xs font-bold text-crimson-800 hover:text-crimson-900 flex items-center gap-1 transition"
+                >
+                  View All Archive →
+                </button>
               </div>
-              <div className="flex items-center gap-2 text-slate-400">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Operator confirmation required for new deltas</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-400">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Full version immutability & audit logging</span>
-              </div>
+
+              {loading ? (
+                <div className="py-12 text-center text-xs text-ink-500 font-mono animate-pulse">
+                  Loading recent cases...
+                </div>
+              ) : recentCases.length === 0 ? (
+                <div className="py-12 text-center space-y-2">
+                  <FolderOpen className="w-8 h-8 text-ink-400 mx-auto" />
+                  <p className="text-xs font-bold text-ink-700">No Investigation Cases Yet</p>
+                  <p className="text-[11px] text-ink-500">Click "Create Sketch" to initiate case file #001.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-parchment-border">
+                  {recentCases.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => resumeWorkflow(c)}
+                      className="py-3 flex items-center justify-between hover:bg-parchment-200/50 px-2.5 rounded-lg cursor-pointer transition group"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Mini suspect thumbnail avatar */}
+                        <div className="w-10 h-10 rounded-lg bg-parchment-300 border border-parchment-border flex items-center justify-center text-ink-700 font-mono text-[10px] font-bold overflow-hidden shrink-0">
+                          <Fingerprint className="w-5 h-5 text-ink-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-crimson-800">{c.case_number}</span>
+                            <span className="text-xs font-bold text-ink-900 group-hover:text-crimson-800 transition line-clamp-1">
+                              {c.title}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ink-500 mt-0.5">
+                            {new Date(c.created_at).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {renderStatusStamp(c.status)}
+                        <ArrowRight className="w-4 h-4 text-ink-400 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* New Case Modal */}
+      {/* Create Case Modal (Manila Dossier Card) */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-blue-400" />
-                New Investigation Case
-              </h2>
+        <div className="fixed inset-0 z-50 bg-noir-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full dossier-card p-6 sm:p-8 space-y-5 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-parchment-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-crimson-800 text-white flex items-center justify-center">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-ink-900 font-serif">Initiate Investigation</h3>
+                  <p className="text-[11px] text-ink-500">Create a tracked case file</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-white text-sm"
+                className="text-ink-400 hover:text-ink-900 text-sm font-bold"
               >
                 ✕
               </button>
@@ -456,47 +512,44 @@ export const DashboardPage: React.FC = () => {
 
             <form onSubmit={handleCreateCase} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Investigation / Incident Title *
-                </label>
+                <label className="block text-xs font-bold text-ink-800 mb-1">Incident / Case Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Armed Robbery Suspect at 4th National Bank"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. Central Plaza Commercial Burglary Suspect"
+                  className="w-full bg-parchment-50 border border-parchment-border rounded-lg p-2.5 text-xs text-ink-900 placeholder-ink-400 focus:outline-none focus:border-crimson-700"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  RMS Reference (Optional)
+                <label className="block text-xs font-bold text-ink-800 mb-1">
+                  External RMS / CAD Identifier (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. CAD-2026-99210"
                   value={newExtRef}
                   onChange={(e) => setNewExtRef(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. CAD-2026-99210"
+                  className="w-full bg-parchment-50 border border-parchment-border rounded-lg p-2.5 text-xs text-ink-900 placeholder-ink-400 focus:outline-none focus:border-crimson-700"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-parchment-border">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition"
+                  className="px-4 py-2 btn-parchment text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating || !newTitle.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition flex items-center gap-2"
+                  className="px-5 py-2 btn-crimson text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-crimson"
                 >
-                  {creating && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                  Create & Begin Intake
+                  {creating ? 'Opening File...' : 'Create & Begin Intake →'}
                 </button>
               </div>
             </form>
