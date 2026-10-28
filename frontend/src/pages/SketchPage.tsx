@@ -5,44 +5,25 @@ import { ForensicImage } from '../components/ForensicImage';
 import {
   Sparkles,
   Download,
-  RefreshCw,
-  Edit3,
   Sliders,
-  AlertTriangle,
   ArrowRight,
   ArrowLeft,
+  Check,
+  RefreshCw,
+  AlertTriangle,
+  Bookmark,
   Shield,
   Layers,
-  CheckCircle2,
-  Image as ImageIcon,
-  Check,
-  Bookmark,
+  Edit3,
   Fingerprint
 } from 'lucide-react';
 import { InvestigativeAidBanner } from '../components/InvestigativeAidBanner';
 
-interface CaseData {
-  id: string;
-  case_number: string;
-  title: string;
-  status: string;
-}
-
-interface ReportData {
-  id: string;
-  report_version: number;
-  summary: string;
-  features: Record<string, string | null>;
-  stated_by_witness: string[];
-}
-
 interface SketchData {
   id: string;
-  case_id: string;
   sketch_version: number;
   generation_prompt_version: string;
   prompt_used: string;
-  image_reference: string;
   image_url: string;
   refinement_notes?: string;
   created_at: string;
@@ -52,107 +33,105 @@ export const SketchPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [caseData, setCaseData] = useState<CaseData | null>(null);
-  const [report, setReport] = useState<ReportData | null>(null);
   const [sketches, setSketches] = useState<SketchData[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<number>(1);
+  const [report, setReport] = useState<any>(null);
+  const [caseData, setCaseData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [error503, setError503] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<number>(1);
+  const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadPageData();
+  }, [id]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const loadData = async () => {
+  const loadPageData = async () => {
     if (!id) return;
     setLoading(true);
-    setError503(null);
+    setError(null);
     try {
-      const [caseRes, reportRes, sketchesRes] = await Promise.all([
-        api.get(`/api/cases/${id}`),
-        api.get(`/api/cases/${id}/report`),
+      const [sketchesRes, reportRes, caseRes] = await Promise.all([
         api.get(`/api/cases/${id}/sketches`),
+        api.get(`/api/cases/${id}/report`),
+        api.get(`/api/cases/${id}`)
       ]);
-
-      setCaseData(caseRes.data);
-      setReport(reportRes.data);
       setSketches(sketchesRes.data);
-
+      setReport(reportRes.data);
+      setCaseData(caseRes.data);
       if (sketchesRes.data.length > 0) {
         setSelectedVersion(sketchesRes.data[0].sketch_version);
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Failed to load sketch workspace:', err);
+      setError(err.response?.data?.detail || 'Failed to load case sketches.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  const handleGenerateSketch = async (fallbackToFixture: boolean = false) => {
+  const handleGenerateSketch = async (useFixture = false) => {
     if (!id) return;
     setGenerating(true);
-    setError503(null);
+    setError(null);
 
-    const endpoint = fallbackToFixture
+    const endpoint = useFixture
       ? `/api/cases/${id}/generate-sketch?use_fixture=true`
       : `/api/cases/${id}/generate-sketch`;
 
     try {
-      const res = await api.post(endpoint);
-      const newSketch = res.data;
-      setSketches((prev) => [newSketch, ...prev]);
-      setSelectedVersion(newSketch.sketch_version);
-      showToast(`Sketch Version ${newSketch.sketch_version} generated successfully!`);
-    } catch (err: any) {
-      if (err.response?.status === 503) {
-        setError503(err.response.data?.detail || 'IMAGE_PROVIDER is none or IMAGE_API_KEY is not set');
-      } else {
-        alert(err.response?.data?.detail || 'Generation failed');
+      let res;
+      try {
+        res = await api.post(endpoint);
+      } catch (err: any) {
+        if (!useFixture && (err.response?.status === 503 || err.response?.status === 502)) {
+          res = await api.post(`/api/cases/${id}/generate-sketch?use_fixture=true`);
+          showToast('Generated using forensic test fixture (AI provider busy/offline)');
+        } else {
+          throw err;
+        }
       }
+
+      showToast(`Sketch Version ${res.data.sketch_version || 'Initial'} generated!`);
+      await loadPageData();
+      if (res.data.sketch_version) {
+        setSelectedVersion(res.data.sketch_version);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.detail || 'Sketch synthesis failed. You can proceed with the test fixture.');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleDownload = async (imageUrl: string, version: number) => {
-    try {
-      const res = await api.get(imageUrl, { responseType: 'blob' });
-      const blobUrl = URL.createObjectURL(res.data);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `CrimeSketch_${caseData?.case_number || 'case'}_v${version}.png`;
-      link.click();
-      URL.revokeObjectURL(blobUrl);
-      showToast(`Downloaded Sketch Version ${version}`);
-    } catch {
-      const link = document.createElement('a');
-      link.href = getFullImageUrl(imageUrl);
-      link.download = `CrimeSketch_${caseData?.case_number || 'case'}_v${version}.png`;
-      link.click();
-      showToast(`Downloaded Sketch Version ${version}`);
-    }
+  const handleDownload = (imageUrl: string, version: number) => {
+    const a = document.createElement('a');
+    a.href = getFullImageUrl(imageUrl);
+    a.download = `${caseData?.case_number || 'sketch'}_v${version}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
+
+  const activeSketch = sketches.find((s) => s.sketch_version === selectedVersion) || sketches[0];
 
   if (loading) {
     return (
-      <div className="min-h-screen noir-desk flex items-center justify-center text-parchment-300 font-mono text-xs">
+      <div className="min-h-screen noir-desk flex items-center justify-center text-parchment-200 font-mono text-xs">
         <div className="w-8 h-8 border-3 border-crimson-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  const activeSketch = sketches.find((s) => s.sketch_version === selectedVersion) || sketches[0];
-
   return (
-    <div className="min-h-screen noir-desk text-parchment-100 pb-20 font-sans">
-      {/* Toast */}
+    <div className="min-h-screen noir-desk p-4 sm:p-6 lg:p-8 font-sans text-parchment-100">
+      {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-crimson-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 border border-crimson-600">
           <Check className="w-4 h-4" />
@@ -160,121 +139,96 @@ export const SketchPage: React.FC = () => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
-        {/* Header Action Bar */}
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Navigation / Header Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-noir-700/80 pb-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/cases/${id}/report`)}
-              className="p-2 bg-noir-900 border border-noir-700 rounded-lg text-parchment-300 hover:text-white transition"
+              className="p-2 bg-noir-900 border border-noir-700 rounded-lg text-parchment-200 hover:text-white transition cursor-pointer"
               title="Return to Report"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold px-2.5 py-0.5 bg-crimson-900/60 text-crimson-300 border border-crimson-700/60 rounded">
+                <span className="font-mono text-xs font-bold px-2.5 py-0.5 bg-crimson-900/60 text-crimson-200 border border-crimson-700/60 rounded">
                   {caseData?.case_number}
                 </span>
-                <span className="text-xs text-parchment-400 font-mono">
-                  {sketches.length} {sketches.length === 1 ? 'Variation' : 'Variations'} Generated
-                </span>
+                <span className="stamp-open">Active Case File</span>
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-white mt-1 font-serif">
-                Generated Suspect Sketches
+                {caseData?.title} — Forensic Composite
               </h1>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
             <button
-              onClick={() => handleGenerateSketch(false)}
-              disabled={generating}
-              className="px-4 py-2 btn-crimson text-xs font-bold flex items-center gap-2 shadow-crimson cursor-pointer"
+              onClick={() => navigate(`/cases/${id}/refine`)}
+              className="px-4 py-2 bg-noir-850 hover:bg-noir-800 text-white border border-noir-700 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer"
             >
-              {generating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span>{sketches.length === 0 ? 'Generate First Sketch' : 'Generate More'}</span>
+              <Sliders className="w-3.5 h-3.5 text-crimson-400" />
+              <span>Anatomical Morph Workbench</span>
             </button>
-
-            {sketches.length > 0 && (
-              <button
-                onClick={() => navigate(`/cases/${id}/refine`)}
-                className="px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-200 text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
-              >
-                <Sliders className="w-3.5 h-3.5 text-crimson-400" />
-                <span>Refine Attributes</span>
-              </button>
-            )}
 
             <button
               onClick={() => navigate(`/cases/${id}/overview`)}
-              className="px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+              className="px-4 py-2 btn-crimson text-xs font-bold flex items-center gap-2 shadow-crimson cursor-pointer"
             >
-              <span>Case Dossier</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Case Dossier →</span>
             </button>
           </div>
         </div>
 
         <InvestigativeAidBanner compact />
 
-        {/* 503 Provider Error Alert */}
-        {error503 && (
-          <div className="dossier-card p-6 border-l-4 border-crimson-700 space-y-3">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-crimson-800 shrink-0" />
-              <div>
-                <h3 className="font-bold text-ink-900 text-sm">AI Image Provider Notice</h3>
-                <p className="text-xs text-ink-600">{error503}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={() => handleGenerateSketch(false)}
-                className="px-4 py-2 btn-parchment text-xs font-bold cursor-pointer"
-              >
-                Retry API Call
-              </button>
-              <button
-                onClick={() => handleGenerateSketch(true)}
-                className="px-4 py-2 btn-crimson text-xs font-bold cursor-pointer shadow-crimson"
-              >
-                Generate With Verified Test Fixture
-              </button>
-            </div>
+        {error && (
+          <div className="p-3 bg-crimson-950/80 border border-crimson-700 rounded-lg text-xs text-crimson-200 font-bold flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-crimson-400" />
+            <span>{error}</span>
           </div>
         )}
 
-        {/* Main Side-by-Side: Confirmed Features (Left) + Generated Sketches (Right) */}
+        {/* 2-Column Layout Matching Panel 6 & 7 */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: Confirmed Features Dossier (5 cols) */}
-          <div className="lg:col-span-5 dossier-card p-6 space-y-5">
-            <div className="border-b border-parchment-border pb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-ink-900 uppercase font-mono tracking-wider">
-                  Confirmed Specifications
-                </h2>
-                <p className="text-[11px] text-ink-500 font-serif italic">Forensic graphite pencil linework</p>
-              </div>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-parchment-300 text-ink-800">
-                v{report?.report_version}
-              </span>
+          {/* Left: Summary Profile Card (5 cols) */}
+          <div className="lg:col-span-5 dossier-card p-6 space-y-5 border-2 border-parchment-border">
+            <div className="border-b border-parchment-border pb-3">
+              <h2 className="text-base font-bold text-ink-950 font-serif">Extracted Forensic Profile</h2>
+              <p className="text-[11px] text-ink-700 font-medium font-sans">
+                Source attributes used for latent image diffusion
+              </p>
             </div>
 
-            {/* Feature Matrix */}
-            <div className="divide-y divide-parchment-border text-xs max-h-[480px] overflow-y-auto pr-1">
-              {report?.features &&
-                Object.entries(report.features).map(([key, val]) => (
-                  <div key={key} className="py-2 flex items-center justify-between gap-3">
-                    <span className="font-semibold text-ink-700 capitalize">
-                      {key.replace(/_/g, ' ')}
-                    </span>
-                    <span className="font-medium text-ink-900 text-right line-clamp-1">
-                      {val || <span className="text-ink-400 italic font-mono text-[11px]">Neutral Default</span>}
-                    </span>
-                  </div>
-                ))}
-            </div>
+            {report ? (
+              <div className="space-y-3">
+                <div className="p-3 bg-white rounded-xl border border-parchment-border text-xs text-ink-950 font-serif italic leading-relaxed">
+                  "{report.summary}"
+                </div>
+
+                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                  {Object.entries(report.features || {}).map(([key, value]) => {
+                    if (!value) return null;
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between p-2 bg-white rounded-lg border border-parchment-border text-xs"
+                      >
+                        <span className="font-mono text-ink-700 font-bold text-[11px] uppercase">
+                          {key.replace(/_/g, ' ')}
+                        </span>
+                        <span className="font-bold text-ink-950 max-w-[180px] truncate text-right">
+                          {String(value)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-ink-700 font-medium italic">No report attributes found.</p>
+            )}
 
             <button
               onClick={() => navigate(`/cases/${id}/report`)}
@@ -286,17 +240,17 @@ export const SketchPage: React.FC = () => {
           </div>
 
           {/* Right: Generated Suspect Composite & Variations matching Panel 7 (7 cols) */}
-          <div className="lg:col-span-7 dossier-card p-6 sm:p-8 space-y-6">
+          <div className="lg:col-span-7 dossier-card p-6 sm:p-8 space-y-6 border-2 border-parchment-border">
             <div className="flex items-center justify-between border-b border-parchment-border pb-3">
               <div>
-                <h2 className="text-base font-bold text-ink-900 font-serif">Suspect Forensic Composite</h2>
-                <p className="text-[11px] text-ink-500">Documentary police facial composite synthesis</p>
+                <h2 className="text-base font-bold text-ink-950 font-serif">Suspect Forensic Composite</h2>
+                <p className="text-[11px] text-ink-700 font-medium">Documentary police facial composite synthesis</p>
               </div>
 
               {/* Version Selector Tabs */}
               {sketches.length > 1 && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-ink-500 text-xs font-mono">Var:</span>
+                  <span className="text-ink-800 text-xs font-mono font-bold">Var:</span>
                   {sketches.map((s) => (
                     <button
                       key={s.id}
@@ -304,7 +258,7 @@ export const SketchPage: React.FC = () => {
                       className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition cursor-pointer ${
                         selectedVersion === s.sketch_version
                           ? 'bg-crimson-800 text-white shadow-sm'
-                          : 'bg-parchment-200 text-ink-700 hover:text-ink-900 hover:bg-parchment-300'
+                          : 'bg-parchment-200 text-ink-950 hover:bg-parchment-300'
                       }`}
                     >
                       v{s.sketch_version}
@@ -329,7 +283,7 @@ export const SketchPage: React.FC = () => {
                     Best Match 92%
                   </div>
 
-                  <div className="absolute bottom-3 left-3 bg-noir-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[11px] text-parchment-200 border border-noir-700 mono-font">
+                  <div className="absolute bottom-3 left-3 bg-noir-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[11px] text-parchment-100 border border-noir-700 font-mono font-bold">
                     Version {activeSketch.sketch_version} • {activeSketch.generation_prompt_version}
                   </div>
 
@@ -343,8 +297,8 @@ export const SketchPage: React.FC = () => {
                 </div>
 
                 {activeSketch.refinement_notes && (
-                  <div className="p-3 bg-parchment-cardAlt rounded-xl border border-parchment-border text-xs text-ink-800">
-                    <span className="font-bold text-crimson-800 block mb-0.5">Refinement Notes:</span>
+                  <div className="p-3 bg-white rounded-xl border border-parchment-border text-xs text-ink-950 shadow-sm">
+                    <span className="font-bold text-crimson-900 block mb-0.5 font-mono">Refinement Notes:</span>
                     {activeSketch.refinement_notes}
                   </div>
                 )}
@@ -372,7 +326,7 @@ export const SketchPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => navigate(`/cases/${id}/refine`)}
-                      className="px-3.5 py-2 bg-noir-850 hover:bg-noir-800 text-parchment-100 text-xs font-bold rounded-xl border border-noir-700 flex items-center gap-1.5 transition cursor-pointer"
+                      className="px-3.5 py-2 bg-noir-850 hover:bg-noir-800 text-white text-xs font-bold rounded-xl border border-noir-700 flex items-center gap-1.5 transition cursor-pointer"
                     >
                       <Sliders className="w-3.5 h-3.5 text-crimson-400" />
                       <span>Refine Sketch</span>
@@ -390,10 +344,10 @@ export const SketchPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="py-16 text-center space-y-4 border-2 border-dashed border-parchment-border rounded-2xl bg-parchment-50">
+              <div className="py-16 text-center space-y-4 border-2 border-dashed border-parchment-border rounded-2xl bg-white shadow-sm">
                 <Fingerprint className="w-12 h-12 text-crimson-800 mx-auto" />
-                <h3 className="text-base font-bold text-ink-900 font-serif">No Composite Generated Yet</h3>
-                <p className="text-xs text-ink-600 max-w-sm mx-auto">
+                <h3 className="text-base font-bold text-ink-950 font-serif">No Composite Generated Yet</h3>
+                <p className="text-xs text-ink-800 font-medium max-w-sm mx-auto">
                   Synthesize the confirmed witness facial feature specifications into a high-resolution graphite pencil sketch.
                 </p>
                 <div className="flex items-center justify-center gap-3 pt-2">

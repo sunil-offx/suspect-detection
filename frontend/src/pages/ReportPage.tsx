@@ -1,131 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { ConfidenceChip } from '../components/ConfidenceChips';
+import { jsPDF } from 'jspdf';
 import {
   FileText,
-  Download,
-  RefreshCw,
-  Edit3,
-  Check,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
+  Download,
   ArrowRight,
   ArrowLeft,
+  Check,
+  Edit3,
+  RefreshCw,
   AlertCircle,
-  FileDown,
+  Eye,
   Shield,
-  Layers,
-  Share2,
-  CheckCircle2,
-  Fingerprint
+  Fingerprint,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import jsPDF from 'jspdf';
 import { InvestigativeAidBanner } from '../components/InvestigativeAidBanner';
-
-interface CaseData {
-  id: string;
-  case_number: string;
-  title: string;
-  status: string;
-  external_reference?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { ConfidenceChip } from '../components/ConfidenceChips';
 
 interface ReportData {
   id: string;
-  case_id: string;
   report_version: number;
   summary: string;
   features: Record<string, string | null>;
   stated_by_witness: string[];
   observed_from_image: string[];
-  unknown: string[];
   ambiguous: string[];
-  created_at: string;
-  updated_at: string;
+  unknown: string[];
   original_witness_statements?: string[];
+  created_at: string;
 }
 
 export const ReportPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
+  const [caseData, setCaseData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editSummary, setEditSummary] = useState('');
-  const [editFeatures, setEditFeatures] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [showOriginal, setShowOriginal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFeatures, setEditFeatures] = useState<Record<string, string>>({});
+  const [editSummary, setEditSummary] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  useEffect(() => {
+    fetchReport();
+  }, [id]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const fetchData = async () => {
+  const fetchReport = async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      const [caseRes, reportRes] = await Promise.all([
-        api.get(`/api/cases/${id}`),
-        api.get(`/api/cases/${id}/report`).catch((err) => {
-          if (err.response?.status === 404) return { data: null };
-          throw err;
-        }),
+      const [reportRes, caseRes] = await Promise.all([
+        api.get(`/api/cases/${id}/report`),
+        api.get(`/api/cases/${id}`)
       ]);
-
+      setReport(reportRes.data);
       setCaseData(caseRes.data);
       if (reportRes.data) {
-        setReport(reportRes.data);
-        setEditSummary(reportRes.data.summary);
-        const mapped: Record<string, string> = {};
+        setEditSummary(reportRes.data.summary || '');
+        const currentFeats: Record<string, string> = {};
         Object.entries(reportRes.data.features || {}).forEach(([k, v]) => {
-          mapped[k] = (v as string) || '';
+          currentFeats[k] = (v as string) || '';
         });
-        setEditFeatures(mapped);
+        setEditFeatures(currentFeats);
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load report data');
+      if (err.response?.status === 404) {
+        setReport(null);
+      } else {
+        setError(err.response?.data?.detail || 'Failed to load report data');
+      }
     } finally {
       setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [id]);
-
-  const handleSaveEdit = async () => {
-    if (!id || !report) return;
-    setSaving(true);
-    try {
-      const res = await api.put(`/api/cases/${id}/report`, {
-        summary: editSummary,
-        features: editFeatures,
-      });
-      setReport(res.data);
-      setIsEditing(false);
-      showToast(`Report updated successfully (Bumped to Version ${res.data.report_version})`);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update report');
-    } finally {
-      setSaving(false);
     }
   };
 
   const handleRegenerate = async () => {
     if (!id) return;
     setRegenerating(true);
+    setError(null);
     try {
       let res;
       try {
@@ -133,84 +100,136 @@ export const ReportPage: React.FC = () => {
       } catch (err: any) {
         if (err.response?.status === 503) {
           res = await api.post(`/api/cases/${id}/analyze?use_fixture=true`);
-          showToast('Analyzed using verified test fixture (AI provider key not configured)');
+          showToast('Analyzed using test fixture (Groq AI not configured)');
         } else {
           throw err;
         }
       }
       setReport(res.data);
-      setEditSummary(res.data.summary);
-      const mapped: Record<string, string> = {};
-      Object.entries(res.data.features || {}).forEach(([k, v]) => {
-        mapped[k] = (v as string) || '';
-      });
-      setEditFeatures(mapped);
-      showToast('Report regenerated successfully via Groq LLM');
+      showToast('New report version generated successfully');
+      await fetchReport();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Analysis failed');
+      setError(err.response?.data?.detail || 'Re-analysis failed');
     } finally {
       setRegenerating(false);
     }
   };
 
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.put(`/api/cases/${id}/report`, {
+        features: editFeatures,
+        summary: editSummary
+      });
+      setReport(res.data);
+      setIsEditing(false);
+      showToast(`Saved as Report Version ${res.data.report_version}`);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update report');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDownloadPDF = () => {
     if (!report || !caseData) return;
-
     const doc = new jsPDF();
-    doc.setFont('helvetica');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 18;
 
-    // Header banner
-    doc.setFillColor(153, 27, 27); // crimson-800
-    doc.rect(0, 0, 210, 28, 'F');
+    // Header
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 28, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(15);
-    doc.text('SKETCHTRACE — FORENSIC FACIAL FEATURE REPORT', 14, 13);
-    doc.setFontSize(8.5);
-    doc.setTextColor(254, 202, 202);
-    doc.text('Confidential Law Enforcement Investigative Aid — Not a Verified Identification', 14, 21);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SKETCHTRACE FORENSIC FEATURE REPORT', margin, y);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Generated: ${new Date().toUTCString()} | System: SketchTrace AI Forensics`, margin, y + 6);
 
-    // Metadata
-    let y = 38;
-    doc.setTextColor(28, 25, 22);
-    doc.setFontSize(10.5);
-    doc.text(`Case ID: ${caseData.case_number}`, 14, y);
-    doc.text(`Title: ${caseData.title}`, 120, y);
-    y += 6;
-    doc.text(`Report Version: v${report.report_version}`, 14, y);
-    doc.text(`Date: ${new Date(report.updated_at).toLocaleDateString()}`, 120, y);
+    y = 36;
 
-    // Executive Summary
-    y += 10;
-    doc.setFontSize(12);
-    doc.text('1. Case Narrative Summary', 14, y);
-    y += 6;
-    doc.setFontSize(9.5);
-    doc.setTextColor(68, 60, 53);
-    const summaryLines = doc.splitTextToSize(report.summary, 180);
-    doc.text(summaryLines, 14, y);
-    y += summaryLines.length * 5 + 8;
-
-    // Feature Table
-    doc.setFontSize(12);
-    doc.setTextColor(28, 25, 22);
-    doc.text('2. Confirmed Morphological Attributes', 14, y);
-    y += 7;
+    // Case Details
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margin, y, pageWidth - 2 * margin, 24, 'FD');
     doc.setFontSize(9);
-    Object.entries(report.features).forEach(([key, val]) => {
+    doc.setTextColor(51, 65, 85);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Case Number:', margin + 4, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.text(caseData.case_number, margin + 30, y + 6);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Title:', margin + 4, y + 13);
+    doc.setFont('helvetica', 'normal');
+    doc.text(caseData.title, margin + 15, y + 13);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Report Version:', margin + 4, y + 20);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`v${report.report_version}`, margin + 32, y + 20);
+
+    y += 32;
+
+    // Summary
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CASE SUMMARY NARRATIVE', margin, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    const splitSummary = doc.splitTextToSize(report.summary || 'No summary available.', pageWidth - 2 * margin);
+    doc.text(splitSummary, margin, y);
+    y += splitSummary.length * 4.5 + 8;
+
+    // Morphological Features Table
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONFIRMED MORPHOLOGICAL SPECIFICATIONS', margin, y);
+    y += 6;
+
+    doc.setFontSize(8.5);
+    Object.entries(report.features).forEach(([key, value]) => {
       if (y > 270) {
         doc.addPage();
         y = 20;
       }
       const formattedKey = key.replace(/_/g, ' ').toUpperCase();
-      doc.setTextColor(120, 100, 80);
-      doc.text(formattedKey, 14, y);
-      doc.setTextColor(28, 25, 22);
-      doc.text(val || 'Unspecified / Neutral', 75, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(formattedKey, margin, y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(value ? String(value) : 'Unspecified', margin + 65, y);
       y += 5.5;
     });
 
-    doc.save(`CaseReport_${caseData.case_number}_v${report.report_version}.pdf`);
-    showToast('Downloaded official PDF dossier');
+    // Legal disclaimer
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(180, 83, 9);
+      doc.text(
+        'LEGAL ADVISORY: AI-GENERATED INVESTIGATIVE AID — NOT A VERIFIED IDENTIFICATION',
+        margin,
+        doc.internal.pageSize.getHeight() - 10
+      );
+    }
+
+    doc.save(`${caseData.case_number}_Feature_Report_v${report.report_version}.pdf`);
   };
 
   const renderConfidence = (key: string) => {
@@ -229,7 +248,7 @@ export const ReportPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen noir-desk flex items-center justify-center text-parchment-300 font-mono text-xs">
+      <div className="min-h-screen noir-desk flex items-center justify-center text-parchment-200 font-mono text-xs">
         <div className="w-8 h-8 border-3 border-crimson-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -251,14 +270,14 @@ export const ReportPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/cases/${id}/inputs`)}
-              className="p-2 bg-noir-900 border border-noir-700 rounded-lg text-parchment-300 hover:text-white transition"
+              className="p-2 bg-noir-900 border border-noir-700 rounded-lg text-parchment-200 hover:text-white transition"
               title="Return to Witness Intake"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold px-2.5 py-0.5 bg-crimson-900/60 text-crimson-300 border border-crimson-700/60 rounded">
+                <span className="font-mono text-xs font-bold px-2.5 py-0.5 bg-crimson-900/60 text-crimson-200 border border-crimson-700/60 rounded">
                   {caseData?.case_number}
                 </span>
                 <span className="stamp-solved">Solved / In Progress</span>
@@ -281,7 +300,7 @@ export const ReportPage: React.FC = () => {
 
             <button
               onClick={() => navigate(`/cases/${id}/sketch`)}
-              className="px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-100 text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
+              className="px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
             >
               <span>Proceed to Sketch</span>
               <ArrowRight className="w-3.5 h-3.5 text-crimson-400" />
@@ -292,25 +311,25 @@ export const ReportPage: React.FC = () => {
         <InvestigativeAidBanner compact />
 
         {error && (
-          <div className="p-3 bg-crimson-950/80 border border-crimson-700 rounded-lg text-xs text-crimson-200 flex items-center gap-2">
+          <div className="p-3 bg-crimson-950/80 border border-crimson-700 rounded-lg text-xs text-crimson-200 font-medium flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-crimson-400" />
             <span>{error}</span>
           </div>
         )}
 
         {report ? (
-          <div className="dossier-card p-6 sm:p-8 space-y-6">
+          <div className="dossier-card p-6 sm:p-8 space-y-6 border-2 border-parchment-border">
             {/* Meta dossier grid matching Panel 9 */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-parchment-cardAlt rounded-xl border border-parchment-border text-xs">
               <div>
-                <span className="text-ink-500 font-mono block text-[10px] uppercase">Case ID</span>
-                <span className="font-mono font-bold text-crimson-800 text-sm">
+                <span className="text-ink-800 font-mono font-bold block text-[10px] uppercase">Case ID</span>
+                <span className="font-mono font-bold text-crimson-900 text-sm">
                   #{caseData?.case_number}
                 </span>
               </div>
               <div>
-                <span className="text-ink-500 font-mono block text-[10px] uppercase">Incident Date</span>
-                <span className="font-semibold text-ink-900">
+                <span className="text-ink-800 font-mono font-bold block text-[10px] uppercase">Incident Date</span>
+                <span className="font-bold text-ink-950">
                   {new Date(caseData?.created_at || '').toLocaleDateString(undefined, {
                     year: 'numeric',
                     month: 'short',
@@ -319,24 +338,24 @@ export const ReportPage: React.FC = () => {
                 </span>
               </div>
               <div>
-                <span className="text-ink-500 font-mono block text-[10px] uppercase">Investigation Title</span>
-                <span className="font-semibold text-ink-900 line-clamp-1">{caseData?.title}</span>
+                <span className="text-ink-800 font-mono font-bold block text-[10px] uppercase">Investigation Title</span>
+                <span className="font-bold text-ink-950 line-clamp-1">{caseData?.title}</span>
               </div>
               <div>
-                <span className="text-ink-500 font-mono block text-[10px] uppercase">Report Version</span>
-                <span className="font-mono font-bold text-ink-900">v{report.report_version}</span>
+                <span className="text-ink-800 font-mono font-bold block text-[10px] uppercase">Report Version</span>
+                <span className="font-mono font-bold text-ink-950">v{report.report_version}</span>
               </div>
             </div>
 
             {/* Narrative Summary */}
             <div className="space-y-2 border-b border-parchment-border pb-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-ink-900 uppercase font-mono tracking-wider">
+                <h3 className="text-sm font-bold text-ink-950 uppercase font-mono tracking-wider">
                   Case Narrative Summary
                 </h3>
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className="text-xs font-bold text-crimson-800 hover:text-crimson-900 flex items-center gap-1"
+                  className="text-xs font-bold text-crimson-800 hover:text-crimson-950 flex items-center gap-1"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                   {isEditing ? 'Cancel Edit' : 'Edit Attributes'}
@@ -349,7 +368,7 @@ export const ReportPage: React.FC = () => {
                     rows={3}
                     value={editSummary}
                     onChange={(e) => setEditSummary(e.target.value)}
-                    className="w-full bg-parchment-50 border border-parchment-border rounded-lg p-2.5 text-xs text-ink-900 focus:outline-none focus:border-crimson-700"
+                    className="w-full bg-white border border-parchment-border rounded-lg p-2.5 text-xs text-ink-950 font-medium focus:outline-none focus:border-crimson-700"
                   />
                   <button
                     onClick={handleSaveEdit}
@@ -360,7 +379,7 @@ export const ReportPage: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <p className="text-xs sm:text-sm text-ink-800 leading-relaxed font-serif italic bg-parchment-50 p-4 rounded-xl border border-parchment-border">
+                <p className="text-xs sm:text-sm text-ink-950 leading-relaxed font-serif italic bg-white p-4 rounded-xl border border-parchment-border">
                   "{report.summary}"
                 </p>
               )}
@@ -368,26 +387,26 @@ export const ReportPage: React.FC = () => {
 
             {/* Details Table Matching Panel 9 */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-ink-900 uppercase font-mono tracking-wider">
+              <h3 className="text-sm font-bold text-ink-950 uppercase font-mono tracking-wider">
                 Confirmed Morphological Specifications
               </h3>
 
               <div className="overflow-x-auto rounded-xl border border-parchment-border">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-parchment-cardAlt border-b border-parchment-border text-ink-600 font-mono text-[11px] uppercase">
+                  <thead className="bg-parchment-cardAlt border-b border-parchment-border text-ink-950 font-mono text-[11px] uppercase">
                     <tr>
                       <th className="py-2.5 px-4 font-bold">Physical Attribute</th>
                       <th className="py-2.5 px-4 font-bold">Observed Specification</th>
                       <th className="py-2.5 px-4 font-bold">Source Classification</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-parchment-border bg-parchment-50">
+                  <tbody className="divide-y divide-parchment-border bg-white">
                     {Object.entries(report.features).map(([key, value]) => {
                       const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
                       return (
-                        <tr key={key} className="hover:bg-parchment-200/40 transition">
-                          <td className="py-2.5 px-4 font-bold text-ink-900">{formattedKey}</td>
-                          <td className="py-2.5 px-4 text-ink-800">
+                        <tr key={key} className="hover:bg-parchment-100/60 transition">
+                          <td className="py-2.5 px-4 font-bold text-ink-950">{formattedKey}</td>
+                          <td className="py-2.5 px-4 text-ink-950 font-medium">
                             {isEditing ? (
                               <input
                                 type="text"
@@ -395,10 +414,10 @@ export const ReportPage: React.FC = () => {
                                 onChange={(e) =>
                                   setEditFeatures((prev) => ({ ...prev, [key]: e.target.value }))
                                 }
-                                className="w-full bg-parchment-100 border border-parchment-border rounded px-2 py-1 text-xs text-ink-900 focus:outline-none focus:border-crimson-700"
+                                className="w-full bg-white border border-parchment-border rounded px-2 py-1 text-xs text-ink-950 focus:outline-none focus:border-crimson-700"
                               />
                             ) : (
-                              value || <span className="text-ink-400 italic">Unspecified (Neutral Default)</span>
+                              value || <span className="text-ink-600 italic font-medium">Unspecified (Neutral Default)</span>
                             )}
                           </td>
                           <td className="py-2.5 px-4">{renderConfidence(key)}</td>
@@ -412,8 +431,8 @@ export const ReportPage: React.FC = () => {
 
             {/* Notes Section matching Panel 9 */}
             <div className="p-4 bg-parchment-cardAlt rounded-xl border border-parchment-border space-y-1">
-              <span className="text-[11px] font-bold text-ink-600 uppercase font-mono block">Notes</span>
-              <p className="text-xs text-ink-800 leading-relaxed">
+              <span className="text-[11px] font-bold text-ink-950 uppercase font-mono block">Notes</span>
+              <p className="text-xs text-ink-900 font-medium leading-relaxed">
                 Witness corroborated descriptors. Facial structure parameters synchronized for forensic composite synthesis.
               </p>
             </div>
@@ -423,22 +442,22 @@ export const ReportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowOriginal(!showOriginal)}
-                className="text-xs font-bold text-ink-700 hover:text-ink-900 flex items-center gap-1.5"
+                className="text-xs font-bold text-ink-900 hover:text-black flex items-center gap-1.5"
               >
                 {showOriginal ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 <span>{showOriginal ? 'Hide' : 'View'} Raw Witness Statements</span>
               </button>
 
               {showOriginal && (
-                <div className="mt-3 p-4 bg-parchment-50 rounded-xl border border-parchment-border space-y-2 text-xs">
+                <div className="mt-3 p-4 bg-white rounded-xl border border-parchment-border space-y-2 text-xs">
                   {report.original_witness_statements && report.original_witness_statements.length > 0 ? (
                     report.original_witness_statements.map((stmt, idx) => (
-                      <p key={idx} className="text-ink-700 italic font-serif">
+                      <p key={idx} className="text-ink-950 italic font-serif font-medium">
                         Witness #{idx + 1}: "{stmt}"
                       </p>
                     ))
                   ) : (
-                    <p className="text-ink-500 italic">No historical raw statements archived.</p>
+                    <p className="text-ink-700 italic font-medium">No historical raw statements archived.</p>
                   )}
                 </div>
               )}
@@ -466,10 +485,10 @@ export const ReportPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="dossier-card p-12 text-center space-y-4">
+          <div className="dossier-card p-12 text-center space-y-4 border-2 border-parchment-border">
             <Fingerprint className="w-12 h-12 text-crimson-800 mx-auto" />
-            <h2 className="text-lg font-bold text-ink-900 font-serif">No Report Generated Yet</h2>
-            <p className="text-xs text-ink-600 max-w-sm mx-auto">
+            <h2 className="text-lg font-bold text-ink-950 font-serif">No Report Generated Yet</h2>
+            <p className="text-xs text-ink-800 font-medium max-w-sm mx-auto">
               Witness statements must be analyzed to generate structured facial attributes.
             </p>
             <button

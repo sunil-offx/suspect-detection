@@ -61,7 +61,7 @@ export const WelcomePage: React.FC = () => {
           <div>
             <span className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
               Sketch<span className="text-crimson-500">Trace</span>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-noir-850 text-parchment-300 border border-parchment-400/30 rounded font-semibold">
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-noir-850 text-parchment-200 border border-parchment-300/30 rounded font-bold">
                 v2.0
               </span>
             </span>
@@ -71,7 +71,7 @@ export const WelcomePage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/dashboard')}
-            className="text-xs font-semibold px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-parchment-100 rounded-lg flex items-center gap-2 transition"
+            className="text-xs font-semibold px-4 py-2 bg-noir-850 hover:bg-noir-800 border border-noir-700 text-white rounded-lg flex items-center gap-2 transition"
           >
             <LayoutDashboard className="w-3.5 h-3.5 text-crimson-400" />
             Investigator Portal
@@ -95,11 +95,11 @@ export const WelcomePage: React.FC = () => {
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-2">
             Sketch<span className="text-crimson-500">Trace</span>
           </h1>
-          <p className="text-sm sm:text-base font-semibold text-crimson-400 tracking-wider uppercase mb-3">
+          <p className="text-sm sm:text-base font-bold text-crimson-400 tracking-wider uppercase mb-3">
             AI Crime Scene Sketch Generator
           </p>
 
-          <p className="serif-font italic text-2xl sm:text-3xl text-parchment-200 max-w-xl mx-auto mb-8 font-serif leading-snug">
+          <p className="serif-font italic text-2xl sm:text-3xl text-parchment-100 max-w-xl mx-auto mb-8 font-serif leading-snug">
             "From Witness Words to Visual Justice"
           </p>
 
@@ -115,14 +115,14 @@ export const WelcomePage: React.FC = () => {
 
             <button
               onClick={() => navigate('/login')}
-              className="w-full sm:w-auto px-6 py-3.5 bg-noir-850 hover:bg-noir-800 text-parchment-200 border border-noir-700 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 bg-noir-850 hover:bg-noir-800 text-white border border-noir-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer"
             >
               <span>Sign In</span>
             </button>
           </div>
 
           {/* Subtext */}
-          <p className="text-xs text-parchment-400/80 mt-8 font-mono tracking-wide">
+          <p className="text-xs text-parchment-200 mt-8 font-mono tracking-wide font-medium">
             Real people. Real descriptions. Real impact.
           </p>
         </div>
@@ -137,18 +137,18 @@ export const WelcomePage: React.FC = () => {
             <div className="w-8 h-8 rounded-lg bg-crimson-800 text-white flex items-center justify-center mb-3">
               <Sparkles className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-ink-900 mb-1">Witness AI Extraction</h2>
-            <p className="text-xs text-ink-600 leading-normal">
+            <h2 className="text-sm font-bold text-ink-950 mb-1">Witness AI Extraction</h2>
+            <p className="text-xs text-ink-800 leading-normal font-medium">
               Converts free narrative statements into certified facial feature specifications via Groq LLM without hallucination.
             </p>
           </div>
 
           <div className="dossier-card p-4 hover:shadow-dossier transition">
-            <div className="w-8 h-8 rounded-lg bg-noir-900 text-parchment-200 flex items-center justify-center mb-3 border border-parchment-border">
+            <div className="w-8 h-8 rounded-lg bg-noir-900 text-white flex items-center justify-center mb-3 border border-noir-700">
               <Layers className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-ink-900 mb-1">Pencil Sketch Synthesis</h2>
-            <p className="text-xs text-ink-600 leading-normal">
+            <h2 className="text-sm font-bold text-ink-950 mb-1">Pencil Sketch Synthesis</h2>
+            <p className="text-xs text-ink-800 leading-normal font-medium">
               Renders authentic monochrome graphite forensic composite sketches matching police standard documentary styles.
             </p>
           </div>
@@ -157,8 +157,8 @@ export const WelcomePage: React.FC = () => {
             <div className="w-8 h-8 rounded-lg bg-crimson-800 text-white flex items-center justify-center mb-3">
               <Shield className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-bold text-ink-900 mb-1">Morphological Workbench</h2>
-            <p className="text-xs text-ink-600 leading-normal">
+            <h2 className="text-sm font-bold text-ink-950 mb-1">Morphological Workbench</h2>
+            <p className="text-xs text-ink-800 leading-normal font-medium">
               Fine-tune jawlines, chin width, eye shapes, hair, and aging with real-time SVG wireframes and before/after split sliders.
             </p>
           </div>
@@ -166,18 +166,18 @@ export const WelcomePage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 max-w-6xl w-full mx-auto pt-4 border-t border-noir-700/60 flex flex-col sm:flex-row items-center justify-between text-xs text-parchment-400 gap-2">
+      <footer className="relative z-10 max-w-6xl w-full mx-auto pt-4 border-t border-noir-700/60 flex flex-col sm:flex-row items-center justify-between text-xs text-parchment-200 font-medium gap-2">
         <div className="flex items-center gap-2">
           <span>SketchTrace Forensic Platform</span>
           <span>•</span>
           <span>Law Enforcement Investigative Aid</span>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="hover:text-parchment-200 transition">
+          <button onClick={() => navigate('/dashboard')} className="hover:text-white transition">
             Dashboard
           </button>
           <span>•</span>
-          <button onClick={() => navigate('/cases')} className="hover:text-parchment-200 transition">
+          <button onClick={() => navigate('/cases')} className="hover:text-white transition">
             Case Archive
           </button>
         </div>

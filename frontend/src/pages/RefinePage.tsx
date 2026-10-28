@@ -88,7 +88,6 @@ export const RefinePage: React.FC = () => {
     loadData();
   }, [id]);
 
-  // Handle adjustments from the interactive facial structure workbench
   const handleApplyAdjustments = async (deltas: FacialFeatureDeltas, summaryText: string) => {
     if (!id) return;
     setRefining(true);
@@ -128,7 +127,6 @@ export const RefinePage: React.FC = () => {
     }
   };
 
-  // Handle free-form natural language instruction
   const handleNaturalLanguageRefine = async (confirmed: boolean = false) => {
     if (!id || !instruction.trim()) return;
     setRefining(true);
@@ -192,9 +190,9 @@ export const RefinePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen noir-desk flex flex-col items-center justify-center p-6 text-parchment-300">
+      <div className="min-h-screen noir-desk flex flex-col items-center justify-center p-6 text-parchment-200">
         <div className="w-12 h-12 border-4 border-crimson-700/20 border-t-crimson-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium font-serif italic text-parchment-300">Loading sketch refinement workbench...</p>
+        <p className="text-sm font-bold font-serif italic text-parchment-200">Loading sketch refinement workbench...</p>
       </div>
     );
   }
@@ -206,7 +204,7 @@ export const RefinePage: React.FC = () => {
     <div className="min-h-screen noir-desk text-parchment-100 pb-20 font-sans">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-crimson-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-crimson flex items-center gap-2 border border-crimson-500">
+        <div className="fixed bottom-6 right-6 z-50 bg-crimson-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-crimson flex items-center gap-2 border border-crimson-600">
           <Check className="w-4 h-4" />
           {toastMessage}
         </div>
@@ -214,9 +212,9 @@ export const RefinePage: React.FC = () => {
 
       {/* Forensic Banner */}
       <div className="bg-noir-900/90 border-b border-noir-800 py-2.5 px-4 text-center">
-        <p className="text-xs text-parchment-400 flex items-center justify-center gap-2">
+        <p className="text-xs text-parchment-200 font-medium flex items-center justify-center gap-2">
           <Shield className="w-3.5 h-3.5 text-crimson-400" />
-          <span className="font-semibold text-parchment-200">FORENSIC COMPOSITE REFINEMENT:</span>
+          <span className="font-bold text-white">FORENSIC COMPOSITE REFINEMENT:</span>
           Append-only version control. Prior versions are permanently immutable.
         </p>
       </div>
@@ -226,17 +224,17 @@ export const RefinePage: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate(`/cases/${id}/sketch`)}
-            className="inline-flex items-center gap-2 text-sm text-parchment-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-parchment-200 hover:text-white font-bold transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Sketch Page
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-parchment-400 font-mono">
-              Total Versions: <strong className="text-white">{sketches.length}</strong>
+            <span className="text-xs text-parchment-200 font-mono font-bold">
+              Total Versions: <strong className="text-white font-black">{sketches.length}</strong>
             </span>
             <button
               onClick={() => navigate(`/cases/${id}/overview`)}
-              className="px-3 py-1.5 rounded-lg btn-parchment text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded-lg btn-parchment text-xs font-bold flex items-center gap-1.5 transition-colors"
             >
               Case Dossier
               <ArrowRight className="w-3.5 h-3.5" />
@@ -248,16 +246,16 @@ export const RefinePage: React.FC = () => {
 
         {/* ZeroGPU / Provider Quota Alert Banner */}
         {quotaError && (
-          <div className="dossier-card border-amber-800/40 p-6 space-y-3">
+          <div className="dossier-card border-2 border-amber-800/40 p-6 space-y-3">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-6 h-6 text-crimson-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <h3 className="font-bold text-ink-950 text-base font-serif">{quotaError?.includes('Z-Image') ? 'Z-Image Turbo Windows Service Notice' : 'AI Image Provider Notice'}</h3>
-                <p className="text-xs text-ink-700 leading-relaxed">
+                <p className="text-xs text-ink-900 font-medium leading-relaxed">
                   {quotaError}
                 </p>
-                <p className="text-[11px] text-ink-500 pt-1">
-                  <strong>How to resolve:</strong> ZeroGPU free quotas reset every few minutes. You can also add a free Hugging Face User Access Token to <code className="text-crimson-800 bg-parchment-100 px-1.5 py-0.5 rounded font-mono">.env</code>, or proceed immediately using the verified forensic test fixture.
+                <p className="text-[11px] text-ink-700 font-bold pt-1">
+                  <strong>How to resolve:</strong> ZeroGPU free quotas reset every few minutes. You can also add a free Hugging Face User Access Token to <code className="text-crimson-900 bg-white px-1.5 py-0.5 rounded font-mono font-bold">.env</code>, or proceed immediately using the verified forensic test fixture.
                 </p>
               </div>
             </div>
@@ -265,7 +263,7 @@ export const RefinePage: React.FC = () => {
               <button
                 onClick={handleGenerateWithFixture}
                 disabled={refining}
-                className="btn-crimson px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                className="btn-crimson px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Proceed With Verified Test Fixture
@@ -273,13 +271,13 @@ export const RefinePage: React.FC = () => {
               <button
                 onClick={() => lastDeltas && handleApplyAdjustments(lastDeltas.deltas, lastDeltas.summary)}
                 disabled={refining}
-                className="btn-parchment px-4 py-2 rounded-xl text-xs font-semibold"
+                className="btn-parchment px-4 py-2 rounded-xl text-xs font-bold"
               >
                 Retry Live AI
               </button>
               <button
                 onClick={() => setQuotaError(null)}
-                className="px-3 py-2 rounded-xl text-ink-600 hover:text-ink-900 text-xs font-medium"
+                className="px-3 py-2 rounded-xl text-ink-800 hover:text-ink-950 text-xs font-bold"
               >
                 Dismiss
               </button>
@@ -295,12 +293,12 @@ export const RefinePage: React.FC = () => {
         />
 
         {/* 2. SECONDARY: Quick Natural Language Text Refinement */}
-        <div className="dossier-card p-6 space-y-3">
+        <div className="dossier-card p-6 space-y-3 border-2 border-parchment-border">
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-crimson-700" />
             <h3 className="text-sm font-bold text-ink-950 font-serif">Natural Language Refinement Note</h3>
           </div>
-          <p className="text-xs text-ink-600 font-sans">
+          <p className="text-xs text-ink-800 font-medium font-sans">
             Alternatively type an explicit natural language description based on witness feedback (e.g. "make jawline squarer and heavier", "add wireframe glasses").
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -309,12 +307,12 @@ export const RefinePage: React.FC = () => {
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               placeholder="e.g. Broader jawline with more angular square chin"
-              className="flex-1 bg-parchment-50 border border-parchment-border rounded-xl px-4 py-2.5 text-xs text-ink-950 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-crimson-700 font-sans"
+              className="flex-1 bg-white border border-parchment-border rounded-xl px-4 py-2.5 text-xs text-ink-950 font-medium placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-crimson-700 font-sans"
             />
             <button
               onClick={() => handleNaturalLanguageRefine(false)}
               disabled={refining || !instruction.trim()}
-              className="btn-crimson px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="btn-crimson px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {refining ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               Apply Text Note
@@ -324,20 +322,20 @@ export const RefinePage: React.FC = () => {
 
         {/* Confirmation Modal if required */}
         {confirmationNeeded && (
-          <div className="dossier-card border-crimson-600/40 p-6 space-y-4 shadow-xl">
+          <div className="dossier-card border-2 border-crimson-600/40 p-6 space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-6 h-6 text-crimson-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <h3 className="font-bold text-ink-950 text-base font-serif">Operator Confirmation Required</h3>
-                <p className="text-sm text-ink-700">{pendingReason}</p>
+                <p className="text-sm text-ink-900 font-medium">{pendingReason}</p>
               </div>
             </div>
 
-            <div className="bg-parchment-100 p-4 rounded-xl border border-parchment-border text-xs space-y-2">
-              <span className="font-semibold text-crimson-900 block uppercase tracking-wider text-[11px] font-mono">
+            <div className="bg-white p-4 rounded-xl border border-parchment-border text-xs space-y-2">
+              <span className="font-extrabold text-crimson-900 block uppercase tracking-wider text-[11px] font-mono">
                 Computed Feature Field Deltas:
               </span>
-              <pre className="text-ink-900 font-mono overflow-x-auto p-2 bg-parchment-50 rounded border border-parchment-border">
+              <pre className="text-ink-950 font-mono overflow-x-auto p-2 bg-parchment-50 rounded border border-parchment-border font-bold">
                 {JSON.stringify(pendingDeltas, null, 2)}
               </pre>
             </div>
@@ -346,13 +344,13 @@ export const RefinePage: React.FC = () => {
               <button
                 onClick={() => handleNaturalLanguageRefine(true)}
                 disabled={refining}
-                className="btn-crimson px-5 py-2.5 rounded-xl text-xs font-semibold"
+                className="btn-crimson px-5 py-2.5 rounded-xl text-xs font-bold"
               >
                 Confirm Delta & Generate Version
               </button>
               <button
                 onClick={() => setConfirmationNeeded(false)}
-                className="btn-parchment px-4 py-2.5 rounded-xl text-xs font-semibold"
+                className="btn-parchment px-4 py-2.5 rounded-xl text-xs font-bold"
               >
                 Cancel
               </button>
@@ -362,7 +360,7 @@ export const RefinePage: React.FC = () => {
 
         {/* 3. SIDE-BY-SIDE & SPLIT COMPARISON OF VERSIONS */}
         {sketches.length >= 1 && (
-          <div className="dossier-card p-6 space-y-6">
+          <div className="dossier-card p-6 space-y-6 border-2 border-parchment-border">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-parchment-border pb-4">
               <div className="flex items-center gap-3">
                 <h3 className="text-lg font-serif font-bold text-ink-950 flex items-center gap-2">
@@ -376,8 +374,8 @@ export const RefinePage: React.FC = () => {
                 <div className="flex items-center bg-parchment-100 p-1 rounded-lg border border-parchment-border">
                   <button
                     onClick={() => setComparisonMode('side-by-side')}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all ${
-                      comparisonMode === 'side-by-side' ? 'btn-crimson !shadow-none' : 'text-ink-600 hover:text-ink-900'
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 transition-all ${
+                      comparisonMode === 'side-by-side' ? 'btn-crimson !shadow-none' : 'text-ink-900 hover:text-black'
                     }`}
                   >
                     <Columns className="w-3.5 h-3.5" />
@@ -385,8 +383,8 @@ export const RefinePage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setComparisonMode('split')}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all ${
-                      comparisonMode === 'split' ? 'btn-crimson !shadow-none' : 'text-ink-600 hover:text-ink-900'
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 transition-all ${
+                      comparisonMode === 'split' ? 'btn-crimson !shadow-none' : 'text-ink-900 hover:text-black'
                     }`}
                   >
                     <Split className="w-3.5 h-3.5" />
@@ -396,11 +394,11 @@ export const RefinePage: React.FC = () => {
 
                 {/* Left Version Picker */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-ink-600 font-serif">Before:</span>
+                  <span className="text-ink-950 font-serif font-bold">Before:</span>
                   <select
                     value={vPrev}
                     onChange={(e) => setVPrev(Number(e.target.value))}
-                    className="bg-parchment-50 border border-parchment-border rounded-lg px-2.5 py-1 text-ink-900 text-xs font-semibold font-mono"
+                    className="bg-white border border-parchment-border rounded-lg px-2.5 py-1 text-ink-950 text-xs font-bold font-mono"
                   >
                     {sketches.map((s) => (
                       <option key={s.id} value={s.sketch_version}>
@@ -412,11 +410,11 @@ export const RefinePage: React.FC = () => {
 
                 {/* Right Version Picker */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-ink-600 font-serif">After:</span>
+                  <span className="text-ink-950 font-serif font-bold">After:</span>
                   <select
                     value={vCurr}
                     onChange={(e) => setVCurr(Number(e.target.value))}
-                    className="bg-parchment-50 border border-parchment-border rounded-lg px-2.5 py-1 text-ink-900 text-xs font-semibold font-mono"
+                    className="bg-white border border-parchment-border rounded-lg px-2.5 py-1 text-ink-950 text-xs font-bold font-mono"
                   >
                     {sketches.map((s) => (
                       <option key={s.id} value={s.sketch_version}>
@@ -433,9 +431,9 @@ export const RefinePage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left (Before) */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-ink-600">
-                    <span className="font-semibold text-ink-900 font-serif">Prior Structure (v{sketchPrev?.sketch_version})</span>
-                    <span className="font-mono text-[11px]">{sketchPrev?.generation_prompt_version}</span>
+                  <div className="flex items-center justify-between text-xs text-ink-800">
+                    <span className="font-bold text-ink-950 font-serif">Prior Structure (v{sketchPrev?.sketch_version})</span>
+                    <span className="font-mono font-bold text-[11px] text-ink-700">{sketchPrev?.generation_prompt_version}</span>
                   </div>
                   <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-parchment-border shadow-dossier relative">
                     {sketchPrev && (
@@ -450,7 +448,7 @@ export const RefinePage: React.FC = () => {
                     </div>
                   </div>
                   {sketchPrev?.refinement_notes && (
-                    <p className="text-xs text-ink-600 italic line-clamp-2 font-serif">
+                    <p className="text-xs text-ink-900 font-medium italic line-clamp-2 font-serif">
                       Notes: {sketchPrev.refinement_notes}
                     </p>
                   )}
@@ -458,9 +456,9 @@ export const RefinePage: React.FC = () => {
 
                 {/* Right (After / Adjusted) */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-ink-600">
-                    <span className="font-semibold text-crimson-800 font-serif">Adjusted Structure (v{sketchCurr?.sketch_version})</span>
-                    <span className="font-mono text-[11px]">{sketchCurr?.generation_prompt_version}</span>
+                  <div className="flex items-center justify-between text-xs text-ink-800">
+                    <span className="font-bold text-crimson-900 font-serif">Adjusted Structure (v{sketchCurr?.sketch_version})</span>
+                    <span className="font-mono font-bold text-[11px] text-crimson-900">{sketchCurr?.generation_prompt_version}</span>
                   </div>
                   <div className="aspect-square bg-white rounded-xl overflow-hidden border-2 border-crimson-700/60 shadow-dossier relative">
                     {sketchCurr && (
@@ -475,7 +473,7 @@ export const RefinePage: React.FC = () => {
                     </div>
                   </div>
                   {sketchCurr?.refinement_notes && (
-                    <p className="text-xs text-ink-800 font-medium line-clamp-2 font-serif">
+                    <p className="text-xs text-ink-950 font-medium line-clamp-2 font-serif">
                       Notes: {sketchCurr.refinement_notes}
                     </p>
                   )}
@@ -519,16 +517,16 @@ export const RefinePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="absolute bottom-2 left-2 bg-noir-950/80 px-2 py-1 rounded text-[10px] font-mono text-parchment-200">
+                  <div className="absolute bottom-2 left-2 bg-noir-950/90 px-2 py-1 rounded text-[10px] font-mono text-white font-bold">
                     Left: v{sketchPrev?.sketch_version}
                   </div>
-                  <div className="absolute bottom-2 right-2 bg-crimson-900/90 text-white px-2 py-1 rounded text-[10px] font-mono">
+                  <div className="absolute bottom-2 right-2 bg-crimson-900/90 text-white px-2 py-1 rounded text-[10px] font-mono font-bold">
                     Right: v{sketchCurr?.sketch_version}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-mono text-ink-600">v{sketchPrev?.sketch_version}</span>
+                  <span className="text-[11px] font-mono text-ink-950 font-bold">v{sketchPrev?.sketch_version}</span>
                   <input
                     type="range"
                     min="0"
@@ -537,7 +535,7 @@ export const RefinePage: React.FC = () => {
                     onChange={(e) => setSplitPosition(Number(e.target.value))}
                     className="flex-1 accent-crimson-700 cursor-ew-resize h-2 bg-parchment-200 rounded-lg"
                   />
-                  <span className="text-[11px] font-mono text-crimson-800 font-bold">v{sketchCurr?.sketch_version}</span>
+                  <span className="text-[11px] font-mono text-crimson-900 font-black">v{sketchCurr?.sketch_version}</span>
                 </div>
               </div>
             )}

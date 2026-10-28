@@ -18,7 +18,7 @@ export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, level, classN
       <span
         className={`stamp-solved !text-[11px] !py-0.5 !px-2 flex items-center gap-1 shadow-sm ${className}`}
       >
-        <CheckCircle2 className="w-3 h-3 text-emerald-800 shrink-0" />
+        <CheckCircle2 className="w-3 h-3 text-emerald-900 shrink-0" />
         <span>{label}</span>
       </span>
     );
@@ -29,7 +29,7 @@ export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, level, classN
       <span
         className={`stamp-open !text-[11px] !py-0.5 !px-2 flex items-center gap-1 shadow-sm ${className}`}
       >
-        <Eye className="w-3 h-3 text-blue-800 shrink-0" />
+        <Eye className="w-3 h-3 text-blue-900 shrink-0" />
         <span>{label}</span>
       </span>
     );
@@ -40,7 +40,7 @@ export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, level, classN
       <span
         className={`stamp-progress !text-[11px] !py-0.5 !px-2 flex items-center gap-1 shadow-sm ${className}`}
       >
-        <AlertTriangle className="w-3 h-3 text-amber-800 shrink-0" />
+        <AlertTriangle className="w-3 h-3 text-amber-900 shrink-0" />
         <span>{label}</span>
       </span>
     );
@@ -51,7 +51,7 @@ export const ConfidenceChip: React.FC<ChipProps> = ({ label, type, level, classN
     <span
       className={`stamp-closed !text-[11px] !py-0.5 !px-2 flex items-center gap-1 ${className}`}
     >
-      <HelpCircle className="w-3 h-3 text-ink-500 shrink-0" />
+      <HelpCircle className="w-3 h-3 text-slate-900 shrink-0" />
       <span>{label}</span>
     </span>
   );
@@ -86,7 +86,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
     <div className={`space-y-3 ${className}`}>
       {statedByWitness.length > 0 && (
         <div>
-          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
+          <span className="text-[10px] font-mono font-bold text-ink-950 uppercase tracking-wider block mb-1">
             Witness Stated Features
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -99,7 +99,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
 
       {observedFromImage.length > 0 && (
         <div>
-          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
+          <span className="text-[10px] font-mono font-bold text-ink-950 uppercase tracking-wider block mb-1">
             Image Observed Features
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -112,7 +112,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
 
       {ambiguous.length > 0 && (
         <div>
-          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
+          <span className="text-[10px] font-mono font-bold text-ink-950 uppercase tracking-wider block mb-1">
             Ambiguous / Conflicting
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -125,7 +125,7 @@ export const ConfidenceMatrix: React.FC<ConfidenceMatrixProps> = ({
 
       {unknown.length > 0 && (
         <div>
-          <span className="text-[10px] font-mono font-bold text-ink-600 uppercase tracking-wider block mb-1">
+          <span className="text-[10px] font-mono font-bold text-ink-950 uppercase tracking-wider block mb-1">
             Unknown / Neutral Defaults
           </span>
           <div className="flex flex-wrap gap-1.5">
