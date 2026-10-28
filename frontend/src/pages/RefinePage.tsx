@@ -101,13 +101,13 @@ export const RefinePage: React.FC = () => {
           deltas,
         });
       } catch (err: any) {
-        if (err.response?.status === 503) {
+        if (err.response?.status === 503 || err.response?.status === 502) {
           res = await api.post(`/api/cases/${id}/refine-sketch?use_fixture=true`, {
             instruction: summaryText,
             confirmed: true,
             deltas,
           });
-          showToast('Generated using dev fixture (AI provider not configured)');
+          showToast('Generated using dev fixture (AI provider busy or quota reached)');
         } else {
           throw err;
         }
@@ -140,13 +140,13 @@ export const RefinePage: React.FC = () => {
           deltas: confirmed ? pendingDeltas : undefined,
         });
       } catch (err: any) {
-        if (err.response?.status === 503) {
+        if (err.response?.status === 503 || err.response?.status === 502) {
           res = await api.post(`/api/cases/${id}/refine-sketch?use_fixture=true`, {
             instruction,
             confirmed,
             deltas: confirmed ? pendingDeltas : undefined,
           });
-          showToast('Generated using dev fixture (AI provider not configured)');
+          showToast('Generated using dev fixture (AI provider busy or quota reached)');
         } else {
           throw err;
         }

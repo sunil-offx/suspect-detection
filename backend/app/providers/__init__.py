@@ -17,6 +17,8 @@ from app.providers.image.noop_provider import NoOpImageProvider
 from app.providers.image.replicate_flux import ReplicateFluxProvider
 from app.providers.image.fal_provider import FalImageProvider
 from app.providers.image.hf_space_provider import HuggingFaceSpaceImageProvider, ZImageTurboProvider
+from app.providers.image.pollinations_provider import PollinationsImageProvider
+from app.providers.image.resilient_provider import ResilientImageProvider
 
 
 def get_provider(kind: str) -> Union[LLMProvider, TranscriptionProvider, ImageProvider]:
@@ -51,19 +53,32 @@ def get_provider(kind: str) -> Union[LLMProvider, TranscriptionProvider, ImagePr
 
     elif k == "image":
         prov = (settings.IMAGE_PROVIDER or "none").lower()
+        pollinations_prov = PollinationsImageProvider()
+
+        if prov in ("pollinations", "flux", "pollination"):
+            return ResilientImageProvider([pollinations_prov], name="PollinationsFlux")
+
         if prov == "replicate" and settings.IMAGE_API_KEY:
-            return ReplicateFluxProvider(api_key=settings.IMAGE_API_KEY, model=settings.IMAGE_MODEL)
+            rep = ReplicateFluxProvider(api_key=settings.IMAGE_API_KEY, model=settings.IMAGE_MODEL)
+            return ResilientImageProvider([rep, pollinations_prov], name="ReplicateWithFallback")
+
         elif prov == "fal" and settings.IMAGE_API_KEY:
-            return FalImageProvider(api_key=settings.IMAGE_API_KEY, model=settings.IMAGE_MODEL)
+            fal = FalImageProvider(api_key=settings.IMAGE_API_KEY, model=settings.IMAGE_MODEL)
+            return ResilientImageProvider([fal, pollinations_prov], name="FalWithFallback")
+
         elif prov in ("huggingface", "hf", "huggingface_space", "z-image-turbo", "z_image_turbo", "gradio"):
             model = settings.IMAGE_MODEL
             if not model or model in ("flux-schnell", "none"):
                 model = "mrfakename/Z-Image-Turbo"
-            return HuggingFaceSpaceImageProvider(
+            hf = HuggingFaceSpaceImageProvider(
                 api_key=settings.IMAGE_API_KEY,
                 model=model
             )
-        return NoOpImageProvider(message="IMAGE_PROVIDER is none or IMAGE_API_KEY not configured")
+            # Wrap HF in ResilientImageProvider with Pollinations fallback
+            return ResilientImageProvider([hf, pollinations_prov], name="HuggingFaceWithFallback")
+
+        # Default fallback to Pollinations if any image request occurs
+        return ResilientImageProvider([pollinations_prov], name="DefaultPollinations")
 
     raise ValueError(f"Unknown provider kind requested: {kind}")
 
@@ -77,6 +92,8 @@ __all__ = [
     "GroqWhisperProvider",
     "HuggingFaceSpaceImageProvider",
     "ZImageTurboProvider",
+    "PollinationsImageProvider",
+    "ResilientImageProvider",
     "ProviderError",
     "ProviderUnavailable",
     "ProviderResponseError",
