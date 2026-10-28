@@ -11,6 +11,7 @@ from app.providers.image.noop_provider import NoOpImageProvider
 from app.providers.llm.openai_provider import OpenAILLMProvider
 from app.providers.transcription.openai_whisper import OpenAIWhisperProvider
 from app.providers.image.replicate_flux import ReplicateFluxProvider
+from app.providers.image.hf_space_provider import HuggingFaceSpaceImageProvider
 
 
 def test_factory_defaults_to_noop_when_keys_missing(monkeypatch):
@@ -62,6 +63,25 @@ def test_factory_returns_configured_provider_when_key_present(monkeypatch):
     monkeypatch.setattr(settings, "IMAGE_API_KEY", "test-key-mock")
     image = get_provider("image")
     assert isinstance(image, ReplicateFluxProvider)
+
+    monkeypatch.setattr(settings, "IMAGE_PROVIDER", "huggingface")
+    monkeypatch.setattr(settings, "IMAGE_MODEL", "https://huggingface.co/spaces/mrfakename/Z-Image-Turbo")
+    hf_image = get_provider("image")
+    assert isinstance(hf_image, HuggingFaceSpaceImageProvider)
+    assert hf_image.space_id == "mrfakename/Z-Image-Turbo"
+
+
+def test_hf_space_provider_initialization():
+    provider = HuggingFaceSpaceImageProvider(
+        model="https://huggingface.co/spaces/mrfakename/Z-Image-Turbo",
+        height=768,
+        width=768,
+        num_inference_steps=8
+    )
+    assert provider.space_id == "mrfakename/Z-Image-Turbo"
+    assert provider.height == 768
+    assert provider.width == 768
+    assert provider.num_inference_steps == 8
 
 
 def test_no_provider_imports_fastapi_or_db():

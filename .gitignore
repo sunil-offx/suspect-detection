@@ -14,6 +14,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+*.db
+*.sqlite3
 
 # Node
 frontend/node_modules/
@@ -36,3 +38,6 @@ Thumbs.db
 
 # 3D Raw Asset Files
 /Ch31_nonPBR.fbx
+
+# Local tools
+z_image_turbo_windows/

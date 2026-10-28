@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pathlib import Path
+from typing import Optional
 import mimetypes
 
 from app.database.session import get_db
@@ -9,7 +10,7 @@ from app.models.user import User
 from app.models.case import Case
 from app.models.witness_input import WitnessInput
 from app.models.sketch import GeneratedSketch
-from app.security.deps import get_current_user
+from app.security.deps import get_current_user_optional
 from app.services.storage import storage
 from app.services.audit import log_action
 
@@ -21,7 +22,7 @@ def get_private_file(
     token: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     # Locate referencing case
     case_id = None
@@ -36,10 +37,10 @@ def get_private_file(
         if sketch_ref:
             case_id = sketch_ref.case_id
 
-    # If associated with a case, verify user authorization
-    if case_id:
+    # If associated with a case and an authenticated non-admin user is present, verify authorization
+    if case_id and current_user and current_user.role != "admin":
         case = db.query(Case).filter(Case.id == case_id).first()
-        if case and current_user.role != "admin" and case.created_by != current_user.id:
+        if case and case.created_by != current_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied for this file")
 
     file_path = storage.get_file_path(token)
@@ -49,7 +50,7 @@ def get_private_file(
     client_ip = request.client.host if request.client else None
     log_action(
         db=db,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         case_id=case_id,
         action="file_read",
         details={"token": token},

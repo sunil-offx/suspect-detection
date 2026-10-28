@@ -3,11 +3,14 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from typing import Generator
 from app.core.config import settings
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    future=True,
-)
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+engine_kwargs = {"future": True}
+if is_sqlite:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_pre_ping"] = True
+
+engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 

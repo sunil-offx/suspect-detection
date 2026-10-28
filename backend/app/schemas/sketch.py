@@ -19,7 +19,10 @@ class SketchRead(BaseModel):
 
 
 class RefineSketchRequest(BaseModel):
-    instruction: str = Field(..., min_length=2, description="Natural language refinement instruction, e.g. 'broader jawline'")
+    instruction: Optional[str] = Field(
+        default="Facial structure adjustment",
+        description="Natural language refinement instruction, e.g. 'broader jawline'"
+    )
     confirmed: bool = Field(False, description="Confirmation flag required if deltas introduce unsupported features")
     deltas: Optional[Dict[str, Any]] = Field(None, description="Optional explicit delta overrides")
 

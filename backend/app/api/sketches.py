@@ -170,7 +170,8 @@ def refine_sketch(
     reason = "Refinement instruction processed successfully."
 
     # Parse common forensic terms if deltas not explicitly passed
-    instr_lower = payload.instruction.lower()
+    instr_text = (payload.instruction or "").strip() or "Facial structure adjustment"
+    instr_lower = instr_text.lower()
     if not deltas:
         if "jaw" in instr_lower or "jawline" in instr_lower or "chin" in instr_lower:
             deltas["jawline"] = "broad, square, prominent angular jawline with wide mandibular angle"
@@ -226,7 +227,7 @@ def refine_sketch(
     new_report = FacialReport(
         case_id=case.id,
         report_version=new_report_version,
-        summary=f"{report.summary} [Refinement applied: {payload.instruction}]",
+        summary=f"{report.summary} [Refinement applied: {instr_text}]",
         features=updated_features,
         stated_by_witness=report.stated_by_witness,
         observed_from_image=report.observed_from_image,
@@ -264,7 +265,7 @@ def refine_sketch(
         generation_prompt_version=prompt_version,
         prompt_used=prompt,
         image_reference=token,
-        refinement_notes=payload.instruction,
+        refinement_notes=instr_text,
         created_by=current_user.id
     )
     db.add(new_sketch)
@@ -279,7 +280,7 @@ def refine_sketch(
         case_id=case.id,
         action="sketch_refine",
         details={
-            "instruction": payload.instruction,
+            "instruction": instr_text,
             "deltas": deltas,
             "new_sketch_version": next_sketch_version,
             "new_report_version": new_report_version

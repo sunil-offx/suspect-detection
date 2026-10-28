@@ -7,13 +7,29 @@ from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
 from app.services.file_validation import validate_image, validate_audio
 from app.services.storage import storage
+from app.database.session import Base, engine
 
 setup_logging()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import app.models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
+    try:
+        from scripts.seed_admin import seed_admin
+        seed_admin()
+    except Exception as e:
+        import logging
+        logging.getLogger("crimesketch").warning(f"Admin seed note: {e}")
+    yield
+
 
 app = FastAPI(
     title="CrimeSketch AI API",
     description="Forensic Facial Composite & Case Investigation Platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -56,7 +72,6 @@ async def provider_response_error_handler(request, exc: ProviderResponseError):
     )
 
 
-
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -67,7 +82,6 @@ def test_analyze():
     from app.providers import get_provider
     provider = get_provider("llm")
     return provider.analyze("Witness saw tall man with short dark hair")
-
 
 
 # Validation test endpoints for Phase 3 gate

@@ -166,7 +166,15 @@ export const InputPage: React.FC = () => {
     setAnalyzing(true);
     setErrorMsg(null);
     try {
-      await api.post(`/api/cases/${id}/analyze?use_fixture=true`);
+      try {
+        await api.post(`/api/cases/${id}/analyze`);
+      } catch (err: any) {
+        if (err.response?.status === 503) {
+          await api.post(`/api/cases/${id}/analyze?use_fixture=true`);
+        } else {
+          throw err;
+        }
+      }
       navigate(`/cases/${id}/report`);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail || 'Analysis failed. Please verify witness inputs were submitted.');

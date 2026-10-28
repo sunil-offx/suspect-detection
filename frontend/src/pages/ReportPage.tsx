@@ -87,7 +87,7 @@ export const ReportPage: React.FC = () => {
         setEditSummary(reportRes.data.summary);
         const mapped: Record<string, string> = {};
         Object.entries(reportRes.data.features || {}).forEach(([k, v]) => {
-          mapped[k] = v || '';
+          mapped[k] = (v as string) || '';
         });
         setEditFeatures(mapped);
       }
@@ -140,7 +140,7 @@ export const ReportPage: React.FC = () => {
       setEditSummary(res.data.summary);
       const mapped: Record<string, string> = {};
       Object.entries(res.data.features || {}).forEach(([k, v]) => {
-        mapped[k] = v || '';
+        mapped[k] = (v as string) || '';
       });
       setEditFeatures(mapped);
       showToast('Report regenerated successfully from witness statements');

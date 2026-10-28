@@ -13,12 +13,8 @@ import {
   Layers,
   CheckCircle2,
   Image as ImageIcon,
-  ChevronLeft,
-  ChevronRight,
   Check,
-  Box,
 } from 'lucide-react';
-import { ModelViewer3D } from '../components/ModelViewer3D';
 
 interface CaseData {
   id: string;
@@ -55,11 +51,19 @@ export const SketchPage: React.FC = () => {
   const [report, setReport] = useState<ReportData | null>(null);
   const [sketches, setSketches] = useState<SketchData[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<number>(1);
-  const [displayMode, setDisplayMode] = useState<'composite' | '3d'>('3d');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error503, setError503] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const getFullImageUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    const base = import.meta.env.VITE_API_BASE_URL || '';
+    const full = `${base}${url}`;
+    return token ? `${full}?token=${token}` : full;
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -121,12 +125,23 @@ export const SketchPage: React.FC = () => {
     }
   };
 
-  const handleDownload = (imageUrl: string, version: number) => {
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = `CrimeSketch_${caseData?.case_number || 'case'}_v${version}.png`;
-    link.click();
-    showToast(`Downloaded Sketch Version ${version}`);
+  const handleDownload = async (imageUrl: string, version: number) => {
+    try {
+      const res = await api.get(imageUrl, { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `CrimeSketch_${caseData?.case_number || 'case'}_v${version}.png`;
+      link.click();
+      URL.revokeObjectURL(blobUrl);
+      showToast(`Downloaded Sketch Version ${version}`);
+    } catch {
+      const link = document.createElement('a');
+      link.href = getFullImageUrl(imageUrl);
+      link.download = `CrimeSketch_${caseData?.case_number || 'case'}_v${version}.png`;
+      link.click();
+      showToast(`Downloaded Sketch Version ${version}`);
+    }
   };
 
   if (loading) {
@@ -181,16 +196,18 @@ export const SketchPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30"
             >
               {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Generate Again
+              {sketches.length === 0 ? 'Generate First Sketch' : 'Generate Again'}
             </button>
 
-            <button
-              onClick={() => navigate(`/cases/${id}/refine`)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-sm font-medium hover:bg-slate-700 hover:text-white transition-colors border border-slate-700"
-            >
-              <Sliders className="w-4 h-4" />
-              Refine Sketch
-            </button>
+            {sketches.length > 0 && (
+              <button
+                onClick={() => navigate(`/cases/${id}/refine`)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30"
+              >
+                <Sliders className="w-4 h-4" />
+                Adjust Facial Structure
+              </button>
+            )}
 
             <button
               onClick={() => navigate(`/cases/${id}/report`)}
@@ -282,85 +299,54 @@ export const SketchPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Sketch Display & Version Switcher (7 cols) */}
+          {/* Right: Pure 2D Sketch Image Display (7 cols) */}
           <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
-            {/* Version Switcher */}
+            {/* Header: Title & Versions */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
               <div className="flex items-center gap-2">
-                {displayMode === '3d' && sketches.length > 0 ? (
-                  <Box className="w-5 h-5 text-blue-400" />
-                ) : (
-                  <ImageIcon className="w-5 h-5 text-blue-400" />
-                )}
-                <h2 className="text-base font-bold text-white">
-                  {sketches.length === 0 || displayMode === '3d'
-                    ? '3D Suspect Morphology & Composite'
-                    : 'Forensic Sketch Composite'}
-                </h2>
+                <ImageIcon className="w-5 h-5 text-blue-400" />
+                <h2 className="text-base font-bold text-white">Forensic Sketch Composite</h2>
               </div>
 
               {sketches.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Mode Selector */}
-                  <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <span className="text-[10px] uppercase font-mono font-bold text-slate-500 px-2">Versions:</span>
+                  {sketches.map((s) => (
                     <button
-                      onClick={() => setDisplayMode('composite')}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                        displayMode === 'composite'
+                      key={s.id}
+                      onClick={() => setSelectedVersion(s.sketch_version)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        selectedVersion === s.sketch_version
                           ? 'bg-blue-600 text-white shadow-md'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      2D Composite
+                      v{s.sketch_version}
                     </button>
-                    <button
-                      onClick={() => setDisplayMode('3d')}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                        displayMode === '3d'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Box className="w-3.5 h-3.5" />
-                      3D Model
-                    </button>
-                  </div>
-
-                  {/* Versions Switcher (shown when 2D is selected) */}
-                  {displayMode === 'composite' && (
-                    <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                      {sketches.map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => setSelectedVersion(s.sketch_version)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                            selectedVersion === s.sketch_version
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          v{s.sketch_version}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
 
             {/* Main Visual Display */}
-            {sketches.length > 0 && displayMode === 'composite' && activeSketch ? (
-              <div className="space-y-4">
+            {sketches.length > 0 && activeSketch ? (
+              <div className="space-y-5">
                 <div className="relative aspect-square max-w-lg mx-auto bg-white rounded-xl overflow-hidden shadow-2xl border-4 border-slate-800 flex items-center justify-center group">
                   <img
-                    src={activeSketch.image_url}
+                    src={getFullImageUrl(activeSketch.image_url)}
                     alt={`Composite Sketch Version ${activeSketch.sketch_version}`}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-[11px] text-slate-300 border border-slate-800 mono-font">
                     Version {activeSketch.sketch_version} • {activeSketch.generation_prompt_version}
                   </div>
+                  <button
+                    onClick={() => handleDownload(activeSketch.image_url, activeSketch.sketch_version)}
+                    className="absolute top-3 right-3 bg-slate-950/80 hover:bg-slate-950 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 shadow-lg"
+                    title="Download PNG"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
                 </div>
 
                 {activeSketch.refinement_notes && (
@@ -369,31 +355,32 @@ export const SketchPage: React.FC = () => {
                     {activeSketch.refinement_notes}
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* 3D Model Standing Viewer */}
-                <div className="max-w-xl mx-auto w-full">
-                  <ModelViewer3D height={460} />
-                </div>
 
                 {/* Synthesis & Generation Controls */}
                 <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-left">
-                    <p className="text-xs font-semibold text-white">Generate Forensic Pencil Composite</p>
+                    <p className="text-xs font-semibold text-white">Generate Next Version</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Synthesize confirmed witness facial feature descriptors into a forensic sketch.
+                      Synthesize a new variation from confirmed facial descriptors.
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto flex-wrap">
+                    <button
+                      onClick={() => navigate(`/cases/${id}/refine`)}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      Adjust Structure
+                    </button>
+
                     <button
                       onClick={() => handleGenerateSketch(false)}
                       disabled={generating}
                       className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                     >
                       {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      {sketches.length === 0 ? 'Generate First Version (Live AI)' : 'Generate Next Version'}
+                      Generate Next Version
                     </button>
 
                     <button
@@ -403,6 +390,37 @@ export const SketchPage: React.FC = () => {
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       Test Fixture
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Clean 2D Image Placeholder Canvas */}
+                <div className="relative aspect-square max-w-lg mx-auto bg-slate-950/90 rounded-2xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center p-8 text-center shadow-inner">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4">
+                    <ImageIcon className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-base font-bold text-white mb-1.5">No Sketch Generated Yet</h3>
+                  <p className="text-xs text-slate-400 max-w-sm leading-relaxed mb-6">
+                    Synthesize the confirmed witness facial feature specifications into a high-resolution graphite pencil composite sketch.
+                  </p>
+                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs">
+                    <button
+                      onClick={() => handleGenerateSketch(false)}
+                      disabled={generating}
+                      className="w-full px-5 py-3 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                    >
+                      {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {generating ? 'Generating Live Sketch...' : 'Generate First Sketch (Live AI)'}
+                    </button>
+                    <button
+                      onClick={() => handleGenerateSketch(true)}
+                      disabled={generating}
+                      className="w-full sm:w-auto px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      Fixture
                     </button>
                   </div>
                 </div>
