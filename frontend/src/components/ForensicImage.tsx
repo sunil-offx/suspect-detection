@@ -127,3 +127,4 @@ export const ForensicImage: React.FC<ForensicImageProps> = ({
     />
   );
 };
+

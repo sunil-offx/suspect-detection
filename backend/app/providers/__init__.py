@@ -10,6 +10,7 @@ from app.providers.llm.groq_provider import GroqLLMProvider
 
 from app.providers.transcription.noop_provider import NoOpTranscriptionProvider
 from app.providers.transcription.openai_whisper import OpenAIWhisperProvider
+from app.providers.transcription.groq_whisper import GroqWhisperProvider
 from app.providers.transcription.local_whisper import LocalWhisperProvider
 
 from app.providers.image.noop_provider import NoOpImageProvider
@@ -36,8 +37,14 @@ def get_provider(kind: str) -> Union[LLMProvider, TranscriptionProvider, ImagePr
 
     elif k in ("transcription", "whisper"):
         prov = (settings.WHISPER_PROVIDER or "none").lower()
-        if prov == "openai" and settings.WHISPER_API_KEY:
-            return OpenAIWhisperProvider(api_key=settings.WHISPER_API_KEY, model=settings.WHISPER_MODEL)
+        api_key = settings.WHISPER_API_KEY or settings.LLM_API_KEY or ""
+        if (prov == "groq" or (prov == "none" and api_key.startswith("gsk_")) or api_key.startswith("gsk_")) and api_key:
+            model = settings.WHISPER_MODEL
+            if not model or model in ("whisper-1", "none", "base"):
+                model = "whisper-large-v3-turbo"
+            return GroqWhisperProvider(api_key=api_key, model=model)
+        elif prov == "openai" and api_key:
+            return OpenAIWhisperProvider(api_key=api_key, model=settings.WHISPER_MODEL)
         elif prov == "local":
             return LocalWhisperProvider(model_size=settings.WHISPER_MODEL)
         return NoOpTranscriptionProvider(message="WHISPER_PROVIDER is none or WHISPER_API_KEY not configured")
@@ -67,6 +74,7 @@ __all__ = [
     "TranscriptionProvider",
     "ImageProvider",
     "GroqLLMProvider",
+    "GroqWhisperProvider",
     "HuggingFaceSpaceImageProvider",
     "ZImageTurboProvider",
     "ProviderError",
