@@ -33,3 +33,6 @@ backend/logs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 3D Raw Asset Files
+/Ch31_nonPBR.fbx
