@@ -1,0 +1,17 @@
+A professional police forensic facial composite sketch, drawn in graphite pencil on plain white background. Front-facing view, eye-level angle, neutral serious expression, sharp clean forensic linework, realistic facial shading. No color, monochrome grayscale.
+
+Subject physical facial features:
+- Face Shape: {face_shape}
+- Jawline & Chin: {jawline}
+- Eyebrows: {eyebrows}
+- Eyes: {eye_shape}, {eye_color}
+- Nose: {nose_shape}
+- Lips & Mouth: {lips}
+- Hair: {hair_style}, {hair_length}, {hair_color}
+- Facial Hair: {facial_hair}
+- Complexion / Skin Texture: {skin_tone}
+- Distinguishing Marks: {distinguishing_marks}
+- Age Appearance: {age_estimate}
+- Accessories: {accessories}
+
+Forensic style rules: anatomically accurate proportions, clean white background, evenly lit, documentary police sketch aesthetic.

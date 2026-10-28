@@ -1,0 +1,38 @@
+{
+  "summary": "Suspect is an adult male, approximately 28-32 years of age, with an oval face shape, sharp defined jawline, and olive complexion. Notable features include thick dark brown arched eyebrows, deep-set hazel eyes, and a short well-trimmed goatee.",
+  "features": {
+    "face_shape": "oval",
+    "skin_tone": "olive",
+    "age_estimate": "28-32 years",
+    "gender_expression": "masculine",
+    "eye_color": "hazel",
+    "eye_shape": "deep-set",
+    "eyebrows": "thick arched dark brown",
+    "nose_shape": "straight with slightly narrow bridge",
+    "lips": "medium full with defined cupid bow",
+    "jawline": "sharp angular with squared chin",
+    "hair_color": "dark brown",
+    "hair_style": "short fade textured crop",
+    "hair_length": "short",
+    "facial_hair": "short trimmed goatee with light cheek stubble",
+    "distinguishing_marks": "small 1cm scar near outer edge of left eyebrow",
+    "accessories": null
+  },
+  "stated_by_witness": [
+    "dark brown short textured hair with faded sides",
+    "sharp angular jawline",
+    "distinct goatee trimmed neat",
+    "deep-set eyes",
+    "small scar near left eyebrow"
+  ],
+  "observed_from_image": [],
+  "unknown": [
+    "ear shape and size",
+    "teeth alignment",
+    "exact eye distance millimeter ratio",
+    "accessories (none reported)"
+  ],
+  "ambiguous": [
+    "jacket color was described as either dark navy or charcoal black under streetlamps"
+  ]
+}
