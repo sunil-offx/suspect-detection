@@ -46,3 +46,4 @@ class GroqWhisperProvider(TranscriptionProvider):
             if isinstance(e, (ProviderUnavailable, ProviderResponseError)):
                 raise
             raise ProviderResponseError(f"Groq Whisper request failed: {str(e)}")
+

@@ -74,8 +74,25 @@ export const InputPage: React.FC = () => {
   const loadCase = async () => {
     setLoading(true);
     try {
-      const res = await api.get<CaseData>(`/api/cases/${id}`);
-      setCaseData(res.data);
+      const [caseRes, inputsRes] = await Promise.all([
+        api.get<CaseData>(`/api/cases/${id}`),
+        api.get<any[]>(`/api/cases/${id}/inputs`).catch(() => ({ data: [] }))
+      ]);
+      setCaseData(caseRes.data);
+      if (inputsRes.data && inputsRes.data.length > 0) {
+        const textInp = inputsRes.data.find((i: any) => i.input_type === 'text' && i.original_text);
+        if (textInp) {
+          setNarrativeText(textInp.original_text);
+          setTextSubmitted(true);
+          if (textInp.structured_data) {
+            setStructuredFields((prev) => ({ ...prev, ...textInp.structured_data }));
+          }
+        }
+        const audioInp = inputsRes.data.find((i: any) => i.input_type === 'audio' && i.transcription);
+        if (audioInp) {
+          setTranscription(audioInp.transcription);
+        }
+      }
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail || 'Failed to load case details');
     } finally {
@@ -122,9 +139,18 @@ export const InputPage: React.FC = () => {
       const res = await api.post(`/api/cases/${id}/inputs/audio`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      // Automatically attempt transcribe (using dev fixture if provider unconfigured)
+      // Automatically transcribe live audio (using Groq Whisper)
       setTranscribing(true);
-      const transRes = await api.post(`/api/cases/${id}/transcribe?use_fixture=true&input_id=${res.data.id}`);
+      let transRes;
+      try {
+        transRes = await api.post(`/api/cases/${id}/transcribe?input_id=${res.data.id}`);
+      } catch (trErr: any) {
+        if (trErr.response?.status === 503) {
+          transRes = await api.post(`/api/cases/${id}/transcribe?use_fixture=true&input_id=${res.data.id}`);
+        } else {
+          throw trErr;
+        }
+      }
       setTranscription(transRes.data.transcription);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail || 'Failed to process audio recording');
@@ -158,14 +184,23 @@ export const InputPage: React.FC = () => {
   };
 
   const handleAnalyzeAndProceed = async () => {
-    // If text was written but not saved, save it first
-    if (narrativeText.trim() && !textSubmitted) {
-      await handleSaveText();
-    }
-
     setAnalyzing(true);
     setErrorMsg(null);
     try {
+      // 1. Always save current narrative text and structured fields first
+      if (narrativeText.trim()) {
+        const cleanFields: Record<string, string> = {};
+        Object.entries(structuredFields).forEach(([k, v]) => {
+          if (v.trim()) cleanFields[k] = v.trim();
+        });
+        await api.post(`/api/cases/${id}/inputs/text`, {
+          text: narrativeText.trim(),
+          structured_fields: cleanFields
+        });
+        setTextSubmitted(true);
+      }
+
+      // 2. Run real AI feature extraction (Groq LLM)
       try {
         await api.post(`/api/cases/${id}/analyze`);
       } catch (err: any) {

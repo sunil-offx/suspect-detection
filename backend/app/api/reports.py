@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from typing import Optional
 
 from app.database.session import get_db
@@ -47,16 +48,24 @@ def analyze_case_inputs(
             detail="Cannot analyze case: no witness text or audio input submitted yet"
         )
 
-    # Combine witness text
+    # Prioritize latest text input and any audio transcriptions
     texts = []
     structured_combined = {}
+
+    latest_text = next((i for i in inputs if i.input_type == "text" and i.original_text), None)
+    if latest_text:
+        texts.append(latest_text.original_text)
+        if latest_text.structured_data and isinstance(latest_text.structured_data, dict):
+            structured_combined.update(latest_text.structured_data)
+
     for inp in inputs:
-        if inp.original_text:
-            texts.append(inp.original_text)
-        if inp.transcription:
+        if inp.input_type == "audio" and inp.transcription:
             texts.append(f"[Transcribed Audio]: {inp.transcription}")
-        if inp.structured_data and isinstance(inp.structured_data, dict):
-            structured_combined.update(inp.structured_data)
+
+    if not texts:
+        for inp in inputs:
+            if inp.original_text and inp.original_text not in texts:
+                texts.append(inp.original_text)
 
     narrative = "\n\n".join(texts)
 
@@ -92,10 +101,16 @@ def analyze_case_inputs(
     if not report_schema:
         raise ProviderResponseError("No report schema produced")
 
+    # Determine next report version
+    last_report = db.query(FacialReport).filter(
+        FacialReport.case_id == case.id
+    ).order_by(desc(FacialReport.report_version), desc(FacialReport.created_at)).first()
+    next_version = (last_report.report_version + 1) if last_report else 1
+
     # Persist FacialReports row
     new_report = FacialReport(
         case_id=case.id,
-        report_version=1,
+        report_version=next_version,
         summary=report_schema.summary,
         features=report_schema.features.model_dump(),
         stated_by_witness=report_schema.stated_by_witness,
@@ -134,7 +149,7 @@ def get_latest_report(
     case = get_case_for_user(case_id, current_user, db)
     report = db.query(FacialReport).filter(
         FacialReport.case_id == case.id
-    ).order_by(FacialReport.report_version.desc()).first()
+    ).order_by(desc(FacialReport.report_version), desc(FacialReport.created_at)).first()
 
     if not report:
         raise HTTPException(
@@ -159,7 +174,7 @@ def update_report(
     case = get_case_for_user(case_id, current_user, db)
     latest = db.query(FacialReport).filter(
         FacialReport.case_id == case.id
-    ).order_by(FacialReport.report_version.desc()).first()
+    ).order_by(desc(FacialReport.report_version), desc(FacialReport.created_at)).first()
 
     if not latest:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No report to update")

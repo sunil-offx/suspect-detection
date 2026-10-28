@@ -44,7 +44,7 @@ def generate_sketch(
     # Fetch latest confirmed report
     report = db.query(FacialReport).filter(
         FacialReport.case_id == case.id
-    ).order_by(desc(FacialReport.report_version)).first()
+    ).order_by(desc(FacialReport.report_version), desc(FacialReport.created_at)).first()
 
     if not report:
         raise HTTPException(
@@ -156,7 +156,7 @@ def refine_sketch(
     # Latest confirmed report
     report = db.query(FacialReport).filter(
         FacialReport.case_id == case.id
-    ).order_by(desc(FacialReport.report_version)).first()
+    ).order_by(desc(FacialReport.report_version), desc(FacialReport.created_at)).first()
 
     if not report:
         raise HTTPException(

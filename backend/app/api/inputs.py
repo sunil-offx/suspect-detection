@@ -50,14 +50,25 @@ def submit_text_input(
 ):
     case = get_case_for_user(case_id, current_user, db)
 
-    witness_input = WitnessInput(
-        case_id=case.id,
-        input_type="text",
-        original_text=payload.text,
-        structured_data=payload.structured_fields or {},
-        created_by=current_user.id
-    )
-    db.add(witness_input)
+    # Update existing text input for this case if present, else create new
+    existing = db.query(WitnessInput).filter(
+        WitnessInput.case_id == case.id,
+        WitnessInput.input_type == "text"
+    ).order_by(WitnessInput.created_at.desc()).first()
+
+    if existing:
+        existing.original_text = payload.text
+        existing.structured_data = payload.structured_fields or {}
+        witness_input = existing
+    else:
+        witness_input = WitnessInput(
+            case_id=case.id,
+            input_type="text",
+            original_text=payload.text,
+            structured_data=payload.structured_fields or {},
+            created_by=current_user.id
+        )
+        db.add(witness_input)
     db.commit()
     db.refresh(witness_input)
 
