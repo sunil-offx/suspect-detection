@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
   RotateCcw,
   Box,
@@ -12,8 +13,8 @@ import {
   Columns2,
   Crosshair,
   User,
-  Eye,
   Sliders,
+  Check,
 } from 'lucide-react';
 
 export interface GNMViewerProps {
@@ -30,7 +31,7 @@ export interface GNMViewerProps {
   className?: string;
 }
 
-type ViewMode = 'avatar' | 'sketch-blend' | 'wireframe' | 'clay';
+type ViewMode = 'textured' | 'wireframe' | 'clay';
 type LayoutMode = 'split' | '3d-only' | '2d-only';
 
 export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
@@ -51,43 +52,42 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const bustMeshRef = useRef<THREE.Mesh | null>(null);
-  const wireframeMeshRef = useRef<THREE.Mesh | null>(null);
-  const landmarksGroupRef = useRef<THREE.Group | null>(null);
-  const eyesGroupRef = useRef<THREE.Group | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
 
-  // Stored base vertices and region weights for real-time GNM deformation
+  // References to the loaded Character model meshes
+  const characterModelRef = useRef<THREE.Group | null>(null);
+  const bodyMeshRef = useRef<THREE.SkinnedMesh | null>(null);
+  const hatMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
+  const eyesMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
+  const landmarksGroupRef = useRef<THREE.Group | null>(null);
+
+  // Base positions and vertex indices for real-time morphing of character.fbx
   const basePositionsRef = useRef<Float32Array | null>(null);
-  const vertexWeightsRef = useRef<{
-    mandible: Float32Array;
-    chin: Float32Array;
-    noseWidth: Float32Array;
-    noseBridge: Float32Array;
-    noseTip: Float32Array;
-    orbit: Float32Array;
-    brow: Float32Array;
-    lips: Float32Array;
-    zygoma: Float32Array;
-    forehead: Float32Array;
-    shoulders: Float32Array;
+  const facialIndicesRef = useRef<{
+    mandible: { idx: number; weight: number }[];
+    chin: { idx: number; weight: number }[];
+    noseWidth: { idx: number; weight: number }[];
+    noseProfile: { idx: number; weight: number }[];
+    zygoma: { idx: number; weight: number }[];
+    brows: { idx: number; weight: number }[];
+    lips: { idx: number; weight: number }[];
+    eyes: { idx: number; weight: number }[];
   } | null>(null);
 
-  const proceduralTexRef = useRef<THREE.CanvasTexture | null>(null);
-  const sketchTexRef = useRef<THREE.Texture | null>(null);
-
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('split');
-  const [viewMode, setViewMode] = useState<ViewMode>('avatar');
+  const [viewMode, setViewMode] = useState<ViewMode>('textured');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAngle, setActiveAngle] = useState<'front' | 'threeQuarter' | 'profile'>('front');
-  const [showMarkers, setShowMarkers] = useState<boolean>(true);
+  const [showCap, setShowCap] = useState<boolean>(false); // Default: without their cap!
+  const [showMarkers, setShowMarkers] = useState<boolean>(true); // MoCap tracking spheres
+  const [modelLoading, setModelLoading] = useState<boolean>(true);
 
-  // Computed Anthropometric metrics for HUD
+  // Anthropometric Metrics for HUD
   const metrics = useMemo(() => {
-    const bigonialMm = Math.round(108 + (jawWidth - 50) * 0.45);
-    const nasalHeightMm = Math.round(48 + (noseProfile - 50) * 0.2);
-    const nasalWidthMm = Math.round(33 + (noseWidth - 50) * 0.25);
-    const shoulderBreadthMm = Math.round(440 + (jawWidth - 50) * 0.5);
+    const bigonialMm = Math.round(112 + (jawWidth - 50) * 0.45);
+    const nasalHeightMm = Math.round(52 + (noseProfile - 50) * 0.2);
+    const nasalWidthMm = Math.round(35 + (noseWidth - 50) * 0.25);
+    const shoulderBreadthMm = Math.round(450 + (jawWidth - 50) * 0.5);
 
     let classification = 'Mesocephalic (Harmonic)';
     if (jawWidth > 68) classification = 'Brachycephalic (Square Mandible)';
@@ -102,154 +102,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     };
   }, [jawWidth, noseWidth, noseProfile]);
 
-  // Helper: Create High-Detail Procedural Skin & Mocap Suit Texture (NO CAP!)
-  const generateProceduralTexture = (): THREE.CanvasTexture => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return new THREE.CanvasTexture(canvas);
-
-    // 1. Background / Scalp (Natural Short Hair / Buzzcut, NO CAP)
-    const scalpGrad = ctx.createLinearGradient(0, 0, 0, 320);
-    scalpGrad.addColorStop(0, '#1c1917'); // Dark espresso short hair
-    scalpGrad.addColorStop(0.65, '#292524');
-    scalpGrad.addColorStop(1, '#44403c');
-    ctx.fillStyle = scalpGrad;
-    ctx.fillRect(0, 0, 1024, 340);
-
-    // Hair texture noise (subtle hair follicles)
-    ctx.fillStyle = 'rgba(15, 12, 10, 0.35)';
-    for (let i = 0; i < 4000; i++) {
-      const hx = Math.random() * 1024;
-      const hy = Math.random() * 320;
-      ctx.fillRect(hx, hy, 1.5, 2.5);
-    }
-
-    // 2. Face and Neck Skin (vNorm ~ 0.32 to 0.78, canvas y: 320 to 720)
-    const skinGrad = ctx.createLinearGradient(0, 320, 0, 720);
-    skinGrad.addColorStop(0, '#f2d3bd'); // Forehead
-    skinGrad.addColorStop(0.3, '#ebd0ba');
-    skinGrad.addColorStop(0.55, '#f4d5c1'); // Cheeks
-    skinGrad.addColorStop(0.85, '#e4bea7'); // Neck
-    skinGrad.addColorStop(1, '#d8b098');
-    ctx.fillStyle = skinGrad;
-    ctx.fillRect(0, 320, 1024, 400);
-
-    // Forehead subtle shadow & temples
-    const fGrad = ctx.createRadialGradient(512, 400, 40, 512, 400, 380);
-    fGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
-    fGrad.addColorStop(1, 'rgba(168, 100, 60, 0.12)');
-    ctx.fillStyle = fGrad;
-    ctx.fillRect(0, 320, 1024, 400);
-
-    // Eyebrows
-    ctx.fillStyle = '#26201e';
-    ctx.beginPath();
-    // Left Eyebrow
-    ctx.ellipse(370, 435, 75, 12, -0.08, 0, Math.PI * 2);
-    ctx.fill();
-    // Right Eyebrow
-    ctx.beginPath();
-    ctx.ellipse(654, 435, 75, 12, 0.08, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eye sockets shading & subtle eye crease
-    ctx.strokeStyle = 'rgba(70, 40, 25, 0.45)';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(370, 480, 40, Math.PI * 1.1, Math.PI * 1.9);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(654, 480, 40, Math.PI * 1.1, Math.PI * 1.9);
-    ctx.stroke();
-
-    // Nose bridge and alar shading
-    ctx.fillStyle = 'rgba(140, 75, 45, 0.18)';
-    ctx.beginPath();
-    ctx.moveTo(502, 440);
-    ctx.lineTo(522, 440);
-    ctx.lineTo(538, 550);
-    ctx.lineTo(486, 550);
-    ctx.closePath();
-    ctx.fill();
-
-    // Nostril shadows
-    ctx.fillStyle = 'rgba(60, 25, 15, 0.6)';
-    ctx.beginPath();
-    ctx.ellipse(492, 556, 12, 6, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(532, 556, 12, 6, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Lips & Philtrum
-    ctx.fillStyle = '#be6e68'; // Upper lip
-    ctx.beginPath();
-    ctx.ellipse(512, 604, 52, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#cb7d77'; // Lower lip (fuller)
-    ctx.beginPath();
-    ctx.ellipse(512, 622, 50, 13, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Lip center line
-    ctx.strokeStyle = 'rgba(90, 30, 25, 0.65)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(462, 612);
-    ctx.lineTo(562, 612);
-    ctx.stroke();
-
-    // Chin cleft / shadow
-    ctx.fillStyle = 'rgba(140, 80, 50, 0.18)';
-    ctx.beginPath();
-    ctx.ellipse(512, 665, 30, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 3. Athletic MoCap Suit (Chest & Shoulders: y = 720 to 1024)
-    const suitGrad = ctx.createLinearGradient(0, 720, 0, 1024);
-    suitGrad.addColorStop(0, '#18181b'); // Dark charcoal athletic mocap suit
-    suitGrad.addColorStop(0.2, '#1e2025');
-    suitGrad.addColorStop(1, '#0f1115');
-    ctx.fillStyle = suitGrad;
-    ctx.fillRect(0, 720, 1024, 304);
-
-    // Collar neckline
-    ctx.strokeStyle = '#27272a';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.arc(512, 720, 180, 0, Math.PI);
-    ctx.stroke();
-
-    // Clavicle & chest compression suit seams
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(150, 820);
-    ctx.lineTo(420, 770);
-    ctx.lineTo(512, 800);
-    ctx.lineTo(604, 770);
-    ctx.lineTo(874, 820);
-    ctx.stroke();
-
-    // Center zipper line
-    ctx.strokeStyle = '#3f3f46';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(512, 800);
-    ctx.lineTo(512, 1024);
-    ctx.stroke();
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    return texture;
-  };
-
-  // 1. Initialize Three.js Scene with Humanoid Bust (Head, Neck, Shoulders)
+  // 1. Initialize Three.js Scene and Load character.glb (converted from character.fbx)
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -259,12 +112,13 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0e1118);
+    scene.background = new THREE.Color(0x0e1118); // Dark studio navy background
     sceneRef.current = scene;
 
-    // Camera: Portrait view capturing head, neck, and broad shoulders
-    const camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 50);
-    camera.position.set(0, -0.15, 3.1);
+    // Camera: Centered on the character's head and shoulders
+    // Mixamo character is ~1.79m tall. Head is at y ~ 1.55m - 1.75m. Shoulders at y ~ 1.38m.
+    const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 50);
+    camera.position.set(0, 1.56, 0.88); // Close-up bust framing
     cameraRef.current = camera;
 
     // WebGL Renderer
@@ -272,373 +126,204 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.25;
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
 
-    // Orbit Controls
+    // Orbit Controls: Focus target is the suspect's face center
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 1.4;
-    controls.maxDistance = 4.2;
+    controls.minDistance = 0.45;
+    controls.maxDistance = 2.4;
     controls.maxPolarAngle = Math.PI / 2 + 0.25;
     controls.minPolarAngle = Math.PI / 6;
-    controls.target.set(0, -0.05, 0);
+    controls.target.set(0, 1.54, 0.02);
     controlsRef.current = controls;
 
-    // Lighting (Warm Key, Cool Fill, Back Rim)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // Lighting (Warm Key, Cool Fill, Back Rim Light)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     scene.add(ambientLight);
 
     const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.4);
-    keyLight.position.set(0.6, 2.0, 3.2);
+    keyLight.position.set(0.6, 2.3, 2.2);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x7dd3fc, 0.65);
-    fillLight.position.set(-2.0, 0.4, 2.2);
+    const fillLight = new THREE.DirectionalLight(0x7dd3fc, 0.7);
+    fillLight.position.set(-1.8, 1.6, 1.5);
     scene.add(fillLight);
 
     const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.1);
-    rimLight.position.set(0, 2.8, -2.5);
+    rimLight.position.set(0, 2.5, -1.8);
     scene.add(rimLight);
 
-    const chestBounceLight = new THREE.DirectionalLight(0xffffff, 0.35);
-    chestBounceLight.position.set(0, -2.2, 1.8);
-    scene.add(chestBounceLight);
+    const chinLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    chinLight.position.set(0, 0.8, 1.2);
+    scene.add(chinLight);
 
-    // --- Build Full Humanoid Bust Geometry (Head + Neck + Clavicle + Shoulders) ---
-    const RINGS = 64;
-    const SEGS = 64;
-    const vertexCount = (RINGS + 1) * (SEGS + 1);
-
-    const positions = new Float32Array(vertexCount * 3);
-    const basePositions = new Float32Array(vertexCount * 3);
-    const uvs = new Float32Array(vertexCount * 2);
-    const indices: number[] = [];
-
-    // Region weight buffers for real-time vertex deformation
-    const wMandible = new Float32Array(vertexCount);
-    const wChin = new Float32Array(vertexCount);
-    const wNoseWidth = new Float32Array(vertexCount);
-    const wNoseBridge = new Float32Array(vertexCount);
-    const wNoseTip = new Float32Array(vertexCount);
-    const wOrbit = new Float32Array(vertexCount);
-    const wBrow = new Float32Array(vertexCount);
-    const wLips = new Float32Array(vertexCount);
-    const wZygoma = new Float32Array(vertexCount);
-    const wForehead = new Float32Array(vertexCount);
-    const wShoulders = new Float32Array(vertexCount);
-
-    let vIdx = 0;
-    for (let r = 0; r <= RINGS; r++) {
-      const vNorm = r / RINGS; // 0 (chest bottom) to 1 (cranial apex)
-      // Span y from -1.55 (chest/shoulders) to +1.15 (cranial top)
-      const y = -1.55 + vNorm * 2.7;
-
-      for (let s = 0; s <= SEGS; s++) {
-        const uNorm = s / SEGS; // 0 to 1
-        const theta = (uNorm - 0.5) * Math.PI * 2;
-        const cosT = Math.cos(theta);
-        const sinT = Math.sin(theta);
-        const isFront = cosT > -0.1;
-
-        let radX = 0.65;
-        let radZ = 0.75;
-        let depthShift = 0.0;
-
-        // 1. Torso & Shoulders (vNorm < 0.28, y = -1.55 to -0.80)
-        if (vNorm < 0.28) {
-          const tBody = vNorm / 0.28;
-          // Shoulders flare out wide to 1.55
-          const shoulderFlare = Math.pow(1 - tBody, 0.65);
-          radX = THREE.MathUtils.lerp(0.48, 1.55, shoulderFlare);
-          radZ = THREE.MathUtils.lerp(0.44, 0.68, shoulderFlare);
-          depthShift = -0.04 * (1 - tBody);
-        }
-        // 2. Neck & Trapezius (vNorm 0.28 to 0.44, y = -0.80 to -0.36)
-        else if (vNorm < 0.44) {
-          const tNeck = (vNorm - 0.28) / 0.16;
-          radX = THREE.MathUtils.lerp(0.48, 0.56, tNeck);
-          radZ = THREE.MathUtils.lerp(0.46, 0.60, tNeck);
-          // Adam's apple / larynx slight protrusion in front center
-          if (isFront && cosT > 0.8) {
-            depthShift += Math.pow(cosT, 8) * 0.06 * Math.sin(tNeck * Math.PI);
-          }
-        }
-        // 3. Lower Mandible & Chin (vNorm 0.44 to 0.56, y = -0.36 to -0.04)
-        else if (vNorm < 0.56) {
-          const tJaw = (vNorm - 0.44) / 0.12;
-          radX = THREE.MathUtils.lerp(0.56, 0.66, tJaw);
-          radZ = THREE.MathUtils.lerp(0.60, 0.76, tJaw);
-
-          if (isFront && cosT > 0.5) {
-            const chinFocus = Math.pow(cosT, 4) * (1 - Math.abs(tJaw - 0.4) * 2.5);
-            if (chinFocus > 0) depthShift += chinFocus * 0.18;
-          }
-        }
-        // 4. Midface: Mouth, Nose, Cheeks, Eyes (vNorm 0.56 to 0.76, y = -0.04 to +0.50)
-        else if (vNorm < 0.76) {
-          const tMid = (vNorm - 0.56) / 0.2;
-          radX = THREE.MathUtils.lerp(0.66, 0.72, Math.sin(tMid * Math.PI));
-          radZ = 0.78;
-
-          // Lips protrusion (vNorm ~ 0.60)
-          if (isFront && cosT > 0.7 && Math.abs(vNorm - 0.60) < 0.04) {
-            const lipFocus = Math.pow(cosT, 6) * (1 - Math.abs(vNorm - 0.60) / 0.04);
-            depthShift += lipFocus * 0.11;
-          }
-
-          // Nasal Pyramid (vNorm ~ 0.63 to 0.72)
-          if (isFront && cosT > 0.82 && vNorm >= 0.63 && vNorm <= 0.73) {
-            const noseLen = (vNorm - 0.63) / 0.1;
-            const noseCurve = Math.sin(noseLen * Math.PI);
-            const noseFocus = Math.pow(cosT, 12);
-            depthShift += noseFocus * (0.28 * noseCurve + 0.08);
-          }
-
-          // Zygomatic Cheekbones (vNorm ~ 0.68)
-          if (isFront && Math.abs(vNorm - 0.68) < 0.06) {
-            const cheekAngle = Math.abs(theta) - 0.65;
-            if (Math.abs(cheekAngle) < 0.35) {
-              radX += 0.07 * (1 - Math.abs(cheekAngle) / 0.35);
-              depthShift += 0.06 * (1 - Math.abs(cheekAngle) / 0.35);
-            }
-          }
-
-          // Orbital Eye Sockets (vNorm ~ 0.72)
-          if (isFront && Math.abs(vNorm - 0.72) < 0.04) {
-            const eyeAngle = Math.abs(theta) - 0.38;
-            if (Math.abs(eyeAngle) < 0.2) {
-              depthShift -= 0.06 * (1 - Math.abs(eyeAngle) / 0.2);
-            }
-          }
-        }
-        // 5. Brow Ridge & Forehead (vNorm 0.76 to 0.86, y = +0.50 to +0.77)
-        else if (vNorm < 0.86) {
-          radX = 0.7;
-          radZ = 0.76;
-          // Brow ridge
-          if (isFront && Math.abs(vNorm - 0.77) < 0.03 && cosT > 0.6) {
-            depthShift += Math.pow(cosT, 4) * 0.11;
-          }
-          depthShift += (0.86 - vNorm) * 0.08;
-        }
-        // 6. Natural Cranial Dome / Skull (NO CAP! Natural human head contour)
-        else {
-          const tCrown = (vNorm - 0.86) / 0.14;
-          const crownCurve = Math.cos(tCrown * Math.PI * 0.5);
-          radX = 0.68 * crownCurve;
-          radZ = 0.74 * crownCurve;
-          depthShift = -0.04 * tCrown;
-        }
-
-        const vx = sinT * radX;
-        const vy = y;
-        const vz = cosT * radZ + depthShift;
-
-        positions[vIdx * 3] = vx;
-        positions[vIdx * 3 + 1] = vy;
-        positions[vIdx * 3 + 2] = vz;
-
-        basePositions[vIdx * 3] = vx;
-        basePositions[vIdx * 3 + 1] = vy;
-        basePositions[vIdx * 3 + 2] = vz;
-
-        // Front-Facing Cylindrical UV Mapping (0.0 at left, 1.0 at right of face)
-        const uTex = Math.min(1.0, Math.max(0.0, (uNorm - 0.25) / 0.5));
-        const vTex = Math.min(1.0, Math.max(0.0, 1.0 - vNorm));
-        uvs[vIdx * 2] = uTex;
-        uvs[vIdx * 2 + 1] = vTex;
-
-        // Deformation Influence Weights
-        if (vNorm >= 0.44 && vNorm <= 0.60 && cosT > -0.2) {
-          wMandible[vIdx] = (1 - Math.abs(vNorm - 0.52) / 0.1) * Math.max(0, cosT + 0.2);
-        }
-        if (vNorm >= 0.44 && vNorm <= 0.54 && cosT > 0.6) {
-          wChin[vIdx] = Math.pow(cosT, 4) * (1 - Math.abs(vNorm - 0.48) / 0.08);
-        }
-        if (vNorm >= 0.62 && vNorm <= 0.69 && cosT > 0.75) {
-          wNoseWidth[vIdx] = Math.pow(cosT, 6) * (1 - Math.abs(vNorm - 0.65) / 0.05);
-        }
-        if (vNorm >= 0.66 && vNorm <= 0.75 && cosT > 0.85) {
-          wNoseBridge[vIdx] = Math.pow(cosT, 8) * (1 - Math.abs(vNorm - 0.70) / 0.05);
-        }
-        if (vNorm >= 0.63 && vNorm <= 0.67 && cosT > 0.9) {
-          wNoseTip[vIdx] = Math.pow(cosT, 14);
-        }
-        if (vNorm >= 0.70 && vNorm <= 0.75 && cosT > 0.5) {
-          const eyeDist = Math.abs(Math.abs(theta) - 0.38);
-          if (eyeDist < 0.2) {
-            wOrbit[vIdx] = (1 - eyeDist / 0.2) * (1 - Math.abs(vNorm - 0.72) / 0.04);
-          }
-        }
-        if (vNorm >= 0.75 && vNorm <= 0.81 && cosT > 0.4) {
-          wBrow[vIdx] = Math.pow(cosT, 3) * (1 - Math.abs(vNorm - 0.77) / 0.04);
-        }
-        if (vNorm >= 0.57 && vNorm <= 0.63 && cosT > 0.7) {
-          wLips[vIdx] = Math.pow(cosT, 6) * (1 - Math.abs(vNorm - 0.60) / 0.04);
-        }
-        if (vNorm >= 0.64 && vNorm <= 0.73 && cosT > 0.3) {
-          const chDist = Math.abs(Math.abs(theta) - 0.65);
-          if (chDist < 0.3) {
-            wZygoma[vIdx] = (1 - chDist / 0.3) * (1 - Math.abs(vNorm - 0.68) / 0.06);
-          }
-        }
-        if (vNorm >= 0.79 && vNorm <= 0.89) {
-          wForehead[vIdx] = (1 - Math.abs(vNorm - 0.84) / 0.06) * Math.max(0, cosT);
-        }
-        if (vNorm < 0.28) {
-          wShoulders[vIdx] = (1 - vNorm / 0.28) * (Math.abs(sinT));
-        }
-
-        vIdx++;
-      }
-    }
-
-    // Triangular faces: OUTWARD-FACING winding order
-    for (let r = 0; r < RINGS; r++) {
-      for (let s = 0; s < SEGS; s++) {
-        const i0 = r * (SEGS + 1) + s;
-        const i1 = i0 + 1;
-        const i2 = (r + 1) * (SEGS + 1) + s;
-        const i3 = i2 + 1;
-
-        indices.push(i0, i1, i2);
-        indices.push(i1, i3, i2);
-      }
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    basePositionsRef.current = basePositions;
-    vertexWeightsRef.current = {
-      mandible: wMandible,
-      chin: wChin,
-      noseWidth: wNoseWidth,
-      noseBridge: wNoseBridge,
-      noseTip: wNoseTip,
-      orbit: wOrbit,
-      brow: wBrow,
-      lips: wLips,
-      zygoma: wZygoma,
-      forehead: wForehead,
-      shoulders: wShoulders,
-    };
-
-    // Procedural Skin & Mocap Suit Texture (NO CAP!)
-    const procTex = generateProceduralTexture();
-    proceduralTexRef.current = procTex;
-
-    const material = new THREE.MeshStandardMaterial({
-      map: procTex,
-      roughness: 0.65,
-      metalness: 0.04,
-      side: THREE.FrontSide,
-    });
-
-    const bustMesh = new THREE.Mesh(geometry, material);
-    scene.add(bustMesh);
-    bustMeshRef.current = bustMesh;
-
-    // Overlay Wireframe mesh for GNM Blueprint mode
-    const wireframeMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const wireframeMesh = new THREE.Mesh(geometry, wireframeMat);
-    wireframeMesh.visible = false;
-    scene.add(wireframeMesh);
-    wireframeMeshRef.current = wireframeMesh;
-
-    // Separate Realistic 3D Anatomical Eyes
-    const eyesGroup = new THREE.Group();
-    const eyeGeom = new THREE.SphereGeometry(0.062, 24, 24);
-    const scleraMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.15,
-      metalness: 0.05,
-    });
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
-    const pupilGeom = new THREE.SphereGeometry(0.024, 16, 16);
-
-    // Left Eye
-    const leftEye = new THREE.Mesh(eyeGeom, scleraMat);
-    leftEye.position.set(-0.25, 0.40, 0.58);
-    const leftPupil = new THREE.Mesh(pupilGeom, pupilMat);
-    leftPupil.position.set(0, 0, 0.052);
-    leftEye.add(leftPupil);
-    eyesGroup.add(leftEye);
-
-    // Right Eye
-    const rightEye = new THREE.Mesh(eyeGeom, scleraMat);
-    rightEye.position.set(0.25, 0.40, 0.58);
-    const rightPupil = new THREE.Mesh(pupilGeom, pupilMat);
-    rightPupil.position.set(0, 0, 0.052);
-    rightEye.add(rightPupil);
-    eyesGroup.add(rightEye);
-
-    scene.add(eyesGroup);
-    eyesGroupRef.current = eyesGroup;
-
-    // Anthropometric MoCap Tracking Spheres (Exactly like the user's reference image!)
+    // Anthropometric MoCap Tracking Spheres (forehead, chin, shoulders, chest)
     const landmarksGroup = new THREE.Group();
     const markerMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.2,
-      metalness: 0.1,
+      roughness: 0.15,
+      metalness: 0.05,
     });
     const bezelMat = new THREE.MeshStandardMaterial({
-      color: 0x7f1d1d, // Dark crimson/black bezel ring like mocap suit
-      roughness: 0.5,
+      color: 0x881337, // dark crimson bezel ring
+      roughness: 0.6,
     });
+    const markerSphere = new THREE.SphereGeometry(0.018, 16, 16);
+    const bezelGeom = new THREE.CylinderGeometry(0.024, 0.024, 0.006, 16);
 
-    const markerSphere = new THREE.SphereGeometry(0.038, 16, 16);
-    const bezelGeom = new THREE.CylinderGeometry(0.048, 0.048, 0.015, 16);
-
-    // Tracking positions from reference image: Forehead/Temples, Chin, Clavicle, Shoulders, Chest
     const markerPositions = [
-      new THREE.Vector3(-0.35, 0.85, 0.52), // Left Forehead Temple
-      new THREE.Vector3(0.35, 0.85, 0.52), // Right Forehead Temple
-      new THREE.Vector3(0, -0.22, 0.74), // Chin (Pogonion)
-      new THREE.Vector3(0, -0.68, 0.52), // Clavicle / Upper Chest
-      new THREE.Vector3(0, -1.05, 0.50), // Mid-Sternum
-      new THREE.Vector3(-0.55, -0.65, 0.32), // Left Inner Shoulder / Clavicle
-      new THREE.Vector3(0.55, -0.65, 0.32), // Right Inner Shoulder / Clavicle
-      new THREE.Vector3(-1.32, -0.78, 0.15), // Left Outer Shoulder
-      new THREE.Vector3(1.32, -0.78, 0.15), // Right Outer Shoulder
+      new THREE.Vector3(-0.065, 1.70, 0.092), // Left Forehead Temple
+      new THREE.Vector3(0.065, 1.70, 0.092),  // Right Forehead Temple
+      new THREE.Vector3(0, 1.48, 0.108),       // Chin (Pogonion)
+      new THREE.Vector3(0, 1.34, 0.082),       // Clavicle / Upper Chest
+      new THREE.Vector3(0, 1.22, 0.088),       // Mid-Sternum
+      new THREE.Vector3(-0.19, 1.37, 0.015),   // Left Shoulder Joint
+      new THREE.Vector3(0.19, 1.37, 0.015),    // Right Shoulder Joint
+      new THREE.Vector3(-0.38, 1.34, -0.01),   // Left Outer Arm
+      new THREE.Vector3(0.38, 1.34, -0.01),    // Right Outer Arm
     ];
 
     markerPositions.forEach((pos) => {
-      const markerObj = new THREE.Group();
+      const obj = new THREE.Group();
       const sphere = new THREE.Mesh(markerSphere, markerMat);
       const bezel = new THREE.Mesh(bezelGeom, bezelMat);
       bezel.rotation.x = Math.PI / 2;
-      markerObj.add(bezel);
-      markerObj.add(sphere);
-      markerObj.position.copy(pos);
-      landmarksGroup.add(markerObj);
+      obj.add(bezel);
+      obj.add(sphere);
+      obj.position.copy(pos);
+      landmarksGroup.add(obj);
     });
 
     landmarksGroup.visible = true;
     scene.add(landmarksGroup);
     landmarksGroupRef.current = landmarksGroup;
 
+    // Load character.glb (converted directly from character.fbx)
+    setModelLoading(true);
+    const loader = new GLTFLoader();
+    loader.load(
+      '/models/character.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        characterModelRef.current = model;
+
+        // Traverse model to configure meshes and prepare deformation buffers
+        model.traverse((child: any) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            const name = child.name.toLowerCase();
+
+            // 1. Identify Hat mesh and hide it by default ("without their cap")
+            if (name.includes('hat')) {
+              hatMeshRef.current = child;
+              child.visible = false; // Cap hidden by default
+            }
+
+            // 2. Identify Eyes mesh
+            if (name.includes('eye')) {
+              eyesMeshRef.current = child;
+            }
+
+            // 3. Identify Body mesh (contains head, face, neck, and shoulders)
+            if (name.includes('body')) {
+              bodyMeshRef.current = child as THREE.SkinnedMesh;
+
+              const geom = child.geometry;
+              const posAttr = geom.attributes.position;
+              const vCount = posAttr.count;
+              const basePos = new Float32Array(posAttr.array);
+              basePositionsRef.current = basePos;
+
+              // Precompute facial region indices based on coordinate bounds
+              const mandible: { idx: number; weight: number }[] = [];
+              const chin: { idx: number; weight: number }[] = [];
+              const noseWidthArr: { idx: number; weight: number }[] = [];
+              const noseProfileArr: { idx: number; weight: number }[] = [];
+              const zygoma: { idx: number; weight: number }[] = [];
+              const brows: { idx: number; weight: number }[] = [];
+              const lips: { idx: number; weight: number }[] = [];
+              const eyesArr: { idx: number; weight: number }[] = [];
+
+              for (let i = 0; i < vCount; i++) {
+                const x = basePos[i * 3];
+                const y = basePos[i * 3 + 1];
+                const z = basePos[i * 3 + 2];
+
+                // Face region is y in [1.45, 1.76] and z > 0.015 (front of head)
+                if (y >= 1.45 && y <= 1.76 && z > 0.015) {
+                  // Mandible / Jawline: lower face lateral
+                  if (y >= 1.47 && y <= 1.58 && Math.abs(x) > 0.028) {
+                    const w = Math.min(1.0, (Math.abs(x) - 0.028) / 0.035);
+                    mandible.push({ idx: i, weight: w });
+                  }
+                  // Chin: center lower jaw
+                  if (y >= 1.46 && y <= 1.53 && Math.abs(x) < 0.03 && z > 0.05) {
+                    chin.push({ idx: i, weight: 1.0 });
+                  }
+                  // Nose Width: alar wings
+                  if (y >= 1.56 && y <= 1.63 && Math.abs(x) < 0.032 && z > 0.055) {
+                    noseWidthArr.push({ idx: i, weight: 1.0 });
+                  }
+                  // Nose Profile: bridge & tip projection
+                  if (y >= 1.56 && y <= 1.67 && Math.abs(x) < 0.022 && z > 0.05) {
+                    noseProfileArr.push({ idx: i, weight: 1.0 });
+                  }
+                  // Zygoma / Cheeks
+                  if (y >= 1.59 && y <= 1.66 && Math.abs(x) >= 0.045 && Math.abs(x) <= 0.085) {
+                    zygoma.push({ idx: i, weight: 1.0 });
+                  }
+                  // Brow ridge
+                  if (y >= 1.66 && y <= 1.72 && z > 0.055) {
+                    brows.push({ idx: i, weight: 1.0 });
+                  }
+                  // Lips
+                  if (y >= 1.52 && y <= 1.57 && Math.abs(x) < 0.032 && z > 0.058) {
+                    lips.push({ idx: i, weight: 1.0 });
+                  }
+                  // Eyes
+                  if (y >= 1.62 && y <= 1.66 && Math.abs(x) >= 0.022 && Math.abs(x) <= 0.05) {
+                    eyesArr.push({ idx: i, weight: 1.0 });
+                  }
+                }
+              }
+
+              facialIndicesRef.current = {
+                mandible,
+                chin,
+                noseWidth: noseWidthArr,
+                noseProfile: noseProfileArr,
+                zygoma,
+                brows,
+                lips,
+                eyes: eyesArr,
+              };
+            }
+          }
+        });
+
+        scene.add(model);
+        setModelLoading(false);
+      },
+      undefined,
+      (err) => {
+        console.error('Error loading character.glb:', err);
+        setModelLoading(false);
+      }
+    );
+
     // Animation Loop
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
       if (controlsRef.current) {
-        if (autoRotate) {
-          bustMesh.rotation.y += 0.008;
-          if (wireframeMeshRef.current) wireframeMeshRef.current.rotation.y = bustMesh.rotation.y;
-          if (landmarksGroupRef.current) landmarksGroupRef.current.rotation.y = bustMesh.rotation.y;
-          if (eyesGroupRef.current) eyesGroupRef.current.rotation.y = bustMesh.rotation.y;
+        if (autoRotate && characterModelRef.current) {
+          characterModelRef.current.rotation.y += 0.008;
+          if (landmarksGroupRef.current) landmarksGroupRef.current.rotation.y = characterModelRef.current.rotation.y;
         }
         controlsRef.current.update();
       }
@@ -663,272 +348,168 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
         container.removeChild(rendererRef.current.domElement);
       }
       renderer.dispose();
-      geometry.dispose();
-      material.dispose();
-      wireframeMat.dispose();
-      procTex.dispose();
+      markerSphere.dispose();
+      bezelGeom.dispose();
+      markerMat.dispose();
+      bezelMat.dispose();
     };
   }, []);
 
-  // 2. Load 2D Case Sketch Texture when available
+  // 2. Real-time Facial Structure Morphing on the character.fbx Mesh
   useEffect(() => {
-    if (!imageUrl) return;
+    if (!bodyMeshRef.current || !basePositionsRef.current || !facialIndicesRef.current) return;
 
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      imageUrl,
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.wrapS = THREE.ClampToEdgeWrapping;
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        sketchTexRef.current = tex;
-
-        if (viewMode === 'sketch-blend' && bustMeshRef.current) {
-          const mat = bustMeshRef.current.material as THREE.MeshStandardMaterial;
-          mat.map = tex;
-          mat.bumpMap = tex;
-          mat.bumpScale = 0.03;
-          mat.needsUpdate = true;
-        }
-      },
-      undefined,
-      (err) => console.warn('Sketch texture load note:', err)
-    );
-  }, [imageUrl, viewMode]);
-
-  // 3. Real-time GNM Morphing: Apply Sliders & Presets to 3D Geometry
-  useEffect(() => {
-    if (!bustMeshRef.current || !basePositionsRef.current || !vertexWeightsRef.current) return;
-
-    const geometry = bustMeshRef.current.geometry as THREE.BufferGeometry;
-    const posAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const geom = bodyMeshRef.current.geometry;
+    const posAttr = geom.attributes.position;
     const currentPos = posAttr.array as Float32Array;
     const basePos = basePositionsRef.current;
-    const w = vertexWeightsRef.current;
-    const vCount = basePos.length / 3;
+    const fac = facialIndicesRef.current;
 
-    const dJawWidth = (jawWidth - 50) / 50;
-    const dNoseWidth = (noseWidth - 50) / 50;
-    const dNoseProfile = (noseProfile - 50) / 50;
-    const dEyeSize = (eyeSize - 50) / 50;
+    // Reset base positions first for face vertices
+    currentPos.set(basePos);
+
+    // Compute slider deltas (-1.0 to +1.0 centered at 50)
+    const dJaw = (jawWidth - 50) / 50;
+    const dNoseW = (noseWidth - 50) / 50;
+    const dNoseP = (noseProfile - 50) / 50;
+    const dEye = (eyeSize - 50) / 50;
     const dBrow = (browDensity - 50) / 50;
-    const dLips = (lipFullness - 50) / 50;
-    const dAge = (ageYears - 35) / 40;
+    const dLip = (lipFullness - 50) / 50;
 
+    // Face Shape Modifiers
     let shapeJawX = 0;
-    let shapeZygomaX = 0;
-    let shapeForeheadX = 0;
+    let shapeZygX = 0;
     let shapeChinZ = 0;
 
     const fShape = faceShape.toLowerCase();
     if (fShape.includes('square')) {
-      shapeJawX = 0.12;
-      shapeForeheadX = 0.08;
-      shapeChinZ = 0.05;
-    } else if (fShape.includes('round')) {
-      shapeZygomaX = 0.1;
-      shapeJawX = -0.04;
+      shapeJawX = 0.007;
+      shapeChinZ = 0.003;
     } else if (fShape.includes('diamond')) {
-      shapeZygomaX = 0.16;
-      shapeJawX = -0.08;
-      shapeForeheadX = -0.06;
+      shapeZygX = 0.008;
+      shapeJawX = -0.004;
+    } else if (fShape.includes('round')) {
+      shapeZygX = 0.006;
+      shapeJawX = -0.002;
     } else if (fShape.includes('heart')) {
-      shapeForeheadX = 0.12;
-      shapeJawX = -0.14;
-      shapeChinZ = 0.04;
+      shapeJawX = -0.006;
+      shapeChinZ = 0.003;
     } else if (fShape.includes('oblong')) {
-      shapeJawX = -0.06;
-      shapeZygomaX = -0.06;
-    } else if (fShape.includes('triangular')) {
-      shapeJawX = 0.15;
-      shapeForeheadX = -0.1;
+      shapeJawX = -0.003;
     }
 
     const cStyle = chinStyle.toLowerCase();
     if (cStyle.includes('square') || cStyle.includes('heavy')) {
-      shapeJawX += 0.08;
-      shapeChinZ += 0.06;
+      shapeJawX += 0.004;
+      shapeChinZ += 0.004;
     } else if (cStyle.includes('pointed') || cStyle.includes('sharp')) {
-      shapeJawX -= 0.08;
-      shapeChinZ += 0.08;
+      shapeJawX -= 0.004;
+      shapeChinZ += 0.005;
     } else if (cStyle.includes('receding')) {
-      shapeChinZ -= 0.1;
-    } else if (cStyle.includes('chiseled')) {
-      shapeJawX += 0.06;
-      shapeChinZ += 0.05;
+      shapeChinZ -= 0.006;
     }
 
-    for (let i = 0; i < vCount; i++) {
-      const idx = i * 3;
-      let x = basePos[idx];
-      let y = basePos[idx + 1];
-      let z = basePos[idx + 2];
+    // 1. Mandible / Jaw Width deformation
+    fac.mandible.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      const x0 = basePos[pIdx];
+      const delta = (dJaw * 0.009 + shapeJawX) * weight;
+      currentPos[pIdx] = x0 + Math.sign(x0) * delta;
+    });
 
-      const wMand = w.mandible[i];
-      const wCh = w.chin[i];
-      const wNW = w.noseWidth[i];
-      const wNB = w.noseBridge[i];
-      const wNT = w.noseTip[i];
-      const wOrb = w.orbit[i];
-      const wBr = w.brow[i];
-      const wLp = w.lips[i];
-      const wZyg = w.zygoma[i];
-      const wFh = w.forehead[i];
-      const wSh = w.shoulders[i];
+    // 2. Chin projection
+    fac.chin.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dJaw * 0.005 + shapeChinZ) * weight;
+    });
 
-      // 1. Mandible / Jawline Expansion
-      if (wMand > 0) {
-        const deltaJaw = (dJawWidth * 0.18 + shapeJawX) * wMand;
-        x += Math.sign(x) * deltaJaw;
-      }
+    // 3. Nose Width
+    fac.noseWidth.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      const x0 = basePos[pIdx];
+      currentPos[pIdx] = x0 + Math.sign(x0) * (dNoseW * 0.004) * weight;
+    });
 
-      // 2. Chin
-      if (wCh > 0) {
-        z += (dJawWidth * 0.08 + shapeChinZ) * wCh;
-        x += Math.sign(x) * (dJawWidth * 0.04) * wCh;
-      }
+    // 4. Nose Profile (bridge & tip)
+    fac.noseProfile.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dNoseP * 0.007) * weight;
+    });
 
-      // 3. Nose
-      if (wNW > 0) {
-        x += Math.sign(x) * (dNoseWidth * 0.06) * wNW;
-      }
-      if (wNB > 0) {
-        z += (dNoseProfile * 0.09) * wNB;
-      }
-      if (wNT > 0) {
-        z += (dNoseProfile * 0.08) * wNT;
-      }
+    // 5. Zygoma (Cheekbones)
+    fac.zygoma.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      const x0 = basePos[pIdx];
+      currentPos[pIdx] = x0 + Math.sign(x0) * (shapeZygX) * weight;
+    });
 
-      // 4. Eyes / Orbits
-      if (wOrb > 0) {
-        const deltaEye = dEyeSize * 0.04 * wOrb;
-        x += Math.sign(x) * deltaEye * 0.5;
-        y += deltaEye;
-      }
+    // 6. Brow Ridge
+    fac.brows.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dBrow * 0.004) * weight;
+    });
 
-      // 5. Brow Ridge
-      if (wBr > 0) {
-        z += dBrow * 0.06 * wBr;
-        y += dBrow * 0.02 * wBr;
-      }
+    // 7. Lips
+    fac.lips.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dLip * 0.004) * weight;
+    });
 
-      // 6. Lips
-      if (wLp > 0) {
-        z += dLips * 0.06 * wLp;
-        y += (y < -0.44 ? -1 : 1) * (dLips * 0.025) * wLp;
-      }
-
-      // 7. Zygomatic Cheekbones
-      if (wZyg > 0) {
-        x += Math.sign(x) * shapeZygomaX * wZyg;
-        z += shapeZygomaX * 0.5 * wZyg;
-      }
-
-      // 8. Forehead
-      if (wFh > 0) {
-        x += Math.sign(x) * shapeForeheadX * wFh;
-      }
-
-      // 9. Shoulders proportional adaptation
-      if (wSh > 0) {
-        x += Math.sign(x) * (dJawWidth * 0.06) * wSh;
-      }
-
-      // 10. Age skin tension
-      if (dAge > 0 && wMand > 0) {
-        y -= dAge * 0.03 * wMand;
-      }
-
-      currentPos[idx] = x;
-      currentPos[idx + 1] = y;
-      currentPos[idx + 2] = z;
-    }
+    // 8. Eyes
+    fac.eyes.forEach(({ idx, weight }) => {
+      const pIdx = idx * 3;
+      currentPos[pIdx + 1] = basePos[pIdx + 1] + (dEye * 0.002) * weight;
+    });
 
     posAttr.needsUpdate = true;
-    geometry.computeVertexNormals();
-
-    // Scale eye meshes based on eyeSize
-    if (eyesGroupRef.current) {
-      const eyeScale = 1.0 + dEyeSize * 0.18;
-      eyesGroupRef.current.scale.set(eyeScale, eyeScale, eyeScale);
-    }
+    geom.computeVertexNormals();
   }, [jawWidth, noseWidth, noseProfile, eyeSize, browDensity, lipFullness, ageYears, faceShape, chinStyle]);
 
-  // 4. View Mode Switcher
+  // 3. Toggle Hat / Cap visibility
   useEffect(() => {
-    if (!bustMeshRef.current || !wireframeMeshRef.current) return;
-
-    const mat = bustMeshRef.current.material as THREE.MeshStandardMaterial;
-
-    if (viewMode === 'avatar') {
-      bustMeshRef.current.visible = true;
-      wireframeMeshRef.current.visible = false;
-      mat.map = proceduralTexRef.current;
-      mat.bumpMap = null;
-      mat.color.setHex(0xffffff);
-      mat.roughness = 0.65;
-      mat.wireframe = false;
-      mat.needsUpdate = true;
-      if (eyesGroupRef.current) eyesGroupRef.current.visible = true;
-    } else if (viewMode === 'sketch-blend') {
-      bustMeshRef.current.visible = true;
-      wireframeMeshRef.current.visible = false;
-      mat.map = sketchTexRef.current || proceduralTexRef.current;
-      mat.bumpMap = sketchTexRef.current;
-      mat.bumpScale = 0.025;
-      mat.color.setHex(0xffffff);
-      mat.roughness = 0.7;
-      mat.wireframe = false;
-      mat.needsUpdate = true;
-      if (eyesGroupRef.current) eyesGroupRef.current.visible = false;
-    } else if (viewMode === 'wireframe') {
-      bustMeshRef.current.visible = true;
-      wireframeMeshRef.current.visible = true;
-      mat.map = null;
-      mat.color.setHex(0x0c1322);
-      mat.roughness = 0.9;
-      mat.wireframe = false;
-      mat.needsUpdate = true;
-      if (eyesGroupRef.current) eyesGroupRef.current.visible = false;
-    } else if (viewMode === 'clay') {
-      bustMeshRef.current.visible = true;
-      wireframeMeshRef.current.visible = false;
-      mat.map = null;
-      mat.bumpMap = null;
-      mat.color.setHex(0xd4d4d8);
-      mat.roughness = 0.55;
-      mat.metalness = 0.05;
-      mat.wireframe = false;
-      mat.needsUpdate = true;
-      if (eyesGroupRef.current) eyesGroupRef.current.visible = true;
+    if (hatMeshRef.current) {
+      hatMeshRef.current.visible = showCap;
     }
-  }, [viewMode]);
+  }, [showCap]);
 
-  // 5. Toggle Markers
+  // 4. Toggle Landmarks / MoCap Markers visibility
   useEffect(() => {
     if (landmarksGroupRef.current) {
       landmarksGroupRef.current.visible = showMarkers;
     }
   }, [showMarkers]);
 
+  // 5. View Mode (Textured / Wireframe / Clay)
+  useEffect(() => {
+    if (!characterModelRef.current) return;
+
+    characterModelRef.current.traverse((child: any) => {
+      if (child.isMesh && child.material) {
+        if (viewMode === 'wireframe') {
+          child.material.wireframe = true;
+        } else {
+          child.material.wireframe = false;
+        }
+      }
+    });
+  }, [viewMode]);
+
   // 6. Preset Camera Angles
   const setCameraAngle = (angle: 'front' | 'threeQuarter' | 'profile') => {
-    if (!cameraRef.current || !controlsRef.current || !bustMeshRef.current) return;
+    if (!cameraRef.current || !controlsRef.current || !characterModelRef.current) return;
     setActiveAngle(angle);
 
-    bustMeshRef.current.rotation.y = 0;
-    if (wireframeMeshRef.current) wireframeMeshRef.current.rotation.y = 0;
+    characterModelRef.current.rotation.y = 0;
     if (landmarksGroupRef.current) landmarksGroupRef.current.rotation.y = 0;
-    if (eyesGroupRef.current) eyesGroupRef.current.rotation.y = 0;
 
     if (angle === 'front') {
-      cameraRef.current.position.set(0, -0.15, 3.1);
+      cameraRef.current.position.set(0, 1.56, 0.88);
     } else if (angle === 'threeQuarter') {
-      cameraRef.current.position.set(1.5, 0.1, 2.7);
+      cameraRef.current.position.set(0.55, 1.60, 0.75);
     } else if (angle === 'profile') {
-      cameraRef.current.position.set(3.1, -0.15, 0);
+      cameraRef.current.position.set(0.85, 1.56, 0.02);
     }
-    controlsRef.current.target.set(0, -0.05, 0);
+    controlsRef.current.target.set(0, 1.54, 0.02);
     controlsRef.current.update();
   };
 
@@ -948,14 +529,14 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-mono font-bold tracking-wider uppercase text-cyan-300">
-                GNM 3D Anthropometric Model
+                character.fbx 3D Model
               </span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-950/80 border border-cyan-800/60 text-cyan-400">
-                Head & Shoulders
+                Native Mixamo Model
               </span>
             </div>
             <p className="text-[10px] text-parchment-400 font-mono">
-              Natural Scalp (No Cap) &bull; Torso Bust &bull; Real-time Morph
+              Bust to Shoulders &bull; Natural Scalp (No Cap) &bull; Real-time Morph
             </p>
           </div>
         </div>
@@ -1008,7 +589,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
       {/* Main Content Area */}
       <div className="relative flex-1 w-full h-[calc(100%-48px)] flex overflow-hidden">
-        {/* PANE 1: 2D REFERENCE MODEL (Visible in 'split' and '2d-only') */}
+        {/* PANE 1: 2D REFERENCE MODEL */}
         {(layoutMode === 'split' || layoutMode === '2d-only') && (
           <div
             className={`relative h-full flex flex-col bg-noir-900 border-r border-noir-800 p-3 transition-all duration-300 ${
@@ -1057,41 +638,27 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
           </div>
         )}
 
-        {/* PANE 2: 3D GNM HEAD & SHOULDERS BUST (Visible in 'split' and '3d-only') */}
+        {/* PANE 2: 3D character.fbx BUST VIEWPORT */}
         {(layoutMode === 'split' || layoutMode === '3d-only') && (
           <div
             className={`relative h-full flex flex-col transition-all duration-300 ${
               layoutMode === 'split' ? 'w-7/12' : 'w-full'
             }`}
           >
-            {/* Top Right Toolbars: Mode Switcher & Markers Toggle */}
+            {/* Top Right Toolbars: Mode, Cap Toggle & Markers Toggle */}
             <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-noir-900/90 p-0.5 rounded-lg border border-noir-700/80 backdrop-blur-sm shadow-md">
               <button
                 type="button"
-                onClick={() => setViewMode('avatar')}
+                onClick={() => setViewMode('textured')}
                 className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
-                  viewMode === 'avatar'
+                  viewMode === 'textured'
                     ? 'bg-cyan-600 text-white shadow-sm'
                     : 'text-parchment-300 hover:text-white'
                 }`}
-                title="Realistic Humanoid Bust (No Cap, Clean Hair & Suit)"
+                title="Default Textured 3D Model"
               >
                 <User className="w-3 h-3" />
-                3D Model
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setViewMode('sketch-blend')}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
-                  viewMode === 'sketch-blend'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-parchment-300 hover:text-white'
-                }`}
-                title="Overlay 2D Sketch Features"
-              >
-                <Sparkles className="w-3 h-3" />
-                Sketch Blend
+                Textured
               </button>
 
               <button
@@ -1102,27 +669,27 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
                     ? 'bg-cyan-600 text-white shadow-sm'
                     : 'text-parchment-300 hover:text-white'
                 }`}
-                title="Google GNM Anthropometric Grid"
+                title="Anatomical Wireframe Grid"
               >
                 <Layers className="w-3 h-3" />
                 Grid
               </button>
 
+              <div className="w-[1px] h-3.5 bg-noir-700 mx-0.5" />
+
+              {/* Toggle Cap Button (Default: OFF / Without their cap) */}
               <button
                 type="button"
-                onClick={() => setViewMode('clay')}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
-                  viewMode === 'clay'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-parchment-300 hover:text-white'
+                onClick={() => setShowCap(!showCap)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
+                  showCap
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-noir-800 text-parchment-300 hover:text-white border border-noir-700'
                 }`}
-                title="Matte Forensic Clay"
+                title="Toggle Cap on/off"
               >
-                <Box className="w-3 h-3" />
-                Clay
+                Cap: {showCap ? 'ON' : 'OFF'}
               </button>
-
-              <div className="w-[1px] h-3.5 bg-noir-700 mx-0.5" />
 
               {/* MoCap Markers ON/OFF */}
               <button
@@ -1144,6 +711,14 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               ref={mountRef}
               className="w-full h-full cursor-grab active:cursor-grabbing focus:outline-none"
             />
+
+            {/* Model Loading Spinner */}
+            {modelLoading && (
+              <div className="absolute inset-0 bg-noir-950/80 flex flex-col items-center justify-center text-parchment-200 font-mono text-xs gap-2 z-20">
+                <div className="w-7 h-7 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                <span>Loading character.fbx 3D model...</span>
+              </div>
+            )}
 
             {/* Quick Angle Camera Controls */}
             <div className="absolute bottom-2.5 left-2.5 z-10 flex items-center gap-1 bg-noir-900/90 p-1 rounded-xl border border-noir-700/80 backdrop-blur-sm shadow-lg">
