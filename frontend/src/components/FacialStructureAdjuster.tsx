@@ -304,8 +304,8 @@ export const FacialStructureAdjuster: React.FC<Props> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left: Interactive Morphology Controls & Category Tabs (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
+        {/* Left: Interactive Morphology Controls & Category Tabs (6 cols) */}
+        <div className="lg:col-span-6 space-y-5">
           {/* Navigation Category Tabs */}
           <div className="flex items-center gap-1.5 p-1 bg-parchment-cardAlt rounded-xl border border-parchment-border overflow-x-auto">
             <button
@@ -704,8 +704,8 @@ export const FacialStructureAdjuster: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Right: Dynamic Morph Visualization & Action Panel (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        {/* Right: Dynamic Morph Visualization & Action Panel (6 cols) */}
+        <div className="lg:col-span-6 space-y-4">
           {/* Header switch for 3D GNM Model vs 2D Schematic */}
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
