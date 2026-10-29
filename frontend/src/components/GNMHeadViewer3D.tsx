@@ -15,6 +15,7 @@ import {
   User,
   Sliders,
   Check,
+  Eye,
 } from 'lucide-react';
 
 export interface GNMViewerProps {
@@ -31,7 +32,7 @@ export interface GNMViewerProps {
   className?: string;
 }
 
-type ViewMode = 'textured' | 'wireframe' | 'clay';
+type ViewMode = 'pasted-2d' | 'native-3d' | 'wireframe';
 type LayoutMode = 'split' | '3d-only' | '2d-only';
 
 export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
@@ -54,12 +55,17 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
 
-  // References to the loaded Character model meshes
+  // References to Character model meshes
   const characterModelRef = useRef<THREE.Group | null>(null);
   const bodyMeshRef = useRef<THREE.SkinnedMesh | null>(null);
   const hatMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
   const eyesMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
+  const teethMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
+  const browsMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
+  const carunculaMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
   const landmarksGroupRef = useRef<THREE.Group | null>(null);
+  const originalTextureRef = useRef<THREE.Texture | null>(null);
+  const compositedTextureRef = useRef<THREE.CanvasTexture | null>(null);
 
   // Base positions and vertex indices for real-time morphing of character.fbx
   const basePositionsRef = useRef<Float32Array | null>(null);
@@ -75,11 +81,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   } | null>(null);
 
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('split');
-  const [viewMode, setViewMode] = useState<ViewMode>('textured');
+  const [viewMode, setViewMode] = useState<ViewMode>('pasted-2d'); // Default: Paste 2D face on 3D model!
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAngle, setActiveAngle] = useState<'front' | 'threeQuarter' | 'profile'>('front');
   const [showCap, setShowCap] = useState<boolean>(false); // Default: without their cap!
-  const [showMarkers, setShowMarkers] = useState<boolean>(true); // MoCap tracking spheres
+  const [showMarkers, setShowMarkers] = useState<boolean>(false); // Default: clean face without giant white balls
   const [modelLoading, setModelLoading] = useState<boolean>(true);
 
   // Anthropometric Metrics for HUD
@@ -112,11 +118,10 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0e1118); // Dark studio navy background
+    scene.background = new THREE.Color(0x0e1118);
     sceneRef.current = scene;
 
     // Camera: Centered on the character's head and shoulders
-    // Mixamo character is ~1.79m tall. Head is at y ~ 1.55m - 1.75m. Shoulders at y ~ 1.38m.
     const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 50);
     camera.position.set(0, 1.56, 0.88); // Close-up bust framing
     cameraRef.current = camera;
@@ -161,7 +166,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     chinLight.position.set(0, 0.8, 1.2);
     scene.add(chinLight);
 
-    // Anthropometric MoCap Tracking Spheres (forehead, chin, shoulders, chest)
+    // Subtle Anthropometric MoCap Tracking Spheres (forehead, chin, shoulders, chest)
     const landmarksGroup = new THREE.Group();
     const markerMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -169,11 +174,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       metalness: 0.05,
     });
     const bezelMat = new THREE.MeshStandardMaterial({
-      color: 0x881337, // dark crimson bezel ring
+      color: 0x881337,
       roughness: 0.6,
     });
-    const markerSphere = new THREE.SphereGeometry(0.018, 16, 16);
-    const bezelGeom = new THREE.CylinderGeometry(0.024, 0.024, 0.006, 16);
+    const markerSphere = new THREE.SphereGeometry(0.012, 16, 16);
+    const bezelGeom = new THREE.CylinderGeometry(0.016, 0.016, 0.004, 16);
 
     const markerPositions = [
       new THREE.Vector3(-0.065, 1.70, 0.092), // Left Forehead Temple
@@ -198,7 +203,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       landmarksGroup.add(obj);
     });
 
-    landmarksGroup.visible = true;
+    landmarksGroup.visible = false; // Default OFF for clean face presentation
     scene.add(landmarksGroup);
     landmarksGroupRef.current = landmarksGroup;
 
@@ -219,22 +224,55 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
             const name = child.name.toLowerCase();
 
-            // 1. Identify Hat mesh and hide it by default ("without their cap")
+            // 1. Hat mesh (Hidden by default, "without their cap")
             if (name.includes('hat')) {
               hatMeshRef.current = child;
-              child.visible = false; // Cap hidden by default
+              child.visible = false;
             }
 
-            // 2. Identify Eyes mesh
+            // 2. Eyes mesh (Hide when pasting 2D face)
             if (name.includes('eye')) {
               eyesMeshRef.current = child;
+              child.visible = false;
             }
 
-            // 3. Identify Body mesh (contains head, face, neck, and shoulders)
-            if (name.includes('body')) {
-              bodyMeshRef.current = child as THREE.SkinnedMesh;
+            // 3. Teeth mesh (Hide when pasting 2D face)
+            if (name.includes('teeth')) {
+              teethMeshRef.current = child;
+              child.visible = false;
+            }
 
-              const geom = child.geometry;
+            // 4. Brows and Lashes mesh (Hide when pasting 2D face)
+            if (name.includes('brows') || name.includes('lashes')) {
+              browsMeshRef.current = child;
+              child.visible = false;
+            }
+
+            // 5. Caruncula
+            if (name.includes('caruncula')) {
+              carunculaMeshRef.current = child;
+              child.visible = false;
+            }
+
+            // 6. Body mesh (contains head, face, neck, and shoulders)
+            if (name.includes('body')) {
+              const bodyMesh = child as THREE.SkinnedMesh;
+              bodyMeshRef.current = bodyMesh;
+
+              // Safely access materials (Body_MAT is index 0, Reflectors is index 1)
+              const mats = Array.isArray(bodyMesh.material) ? bodyMesh.material : [bodyMesh.material];
+              const bodyMat = mats.find((m: any) => m.name === 'Body_MAT') || mats[0];
+              const reflectorMat = mats.find((m: any) => m.name === 'Reflectors');
+
+              if (reflectorMat) {
+                reflectorMat.visible = false; // Hide mocap balls by default
+              }
+
+              if (bodyMat && (bodyMat as THREE.MeshStandardMaterial).map) {
+                originalTextureRef.current = (bodyMat as THREE.MeshStandardMaterial).map;
+              }
+
+              const geom = bodyMesh.geometry;
               const posAttr = geom.attributes.position;
               const vCount = posAttr.count;
               const basePos = new Float32Array(posAttr.array);
@@ -257,20 +295,20 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
                 // Face region is y in [1.45, 1.76] and z > 0.015 (front of head)
                 if (y >= 1.45 && y <= 1.76 && z > 0.015) {
-                  // Mandible / Jawline: lower face lateral
+                  // Mandible / Jawline
                   if (y >= 1.47 && y <= 1.58 && Math.abs(x) > 0.028) {
                     const w = Math.min(1.0, (Math.abs(x) - 0.028) / 0.035);
                     mandible.push({ idx: i, weight: w });
                   }
-                  // Chin: center lower jaw
+                  // Chin
                   if (y >= 1.46 && y <= 1.53 && Math.abs(x) < 0.03 && z > 0.05) {
                     chin.push({ idx: i, weight: 1.0 });
                   }
-                  // Nose Width: alar wings
+                  // Nose Width
                   if (y >= 1.56 && y <= 1.63 && Math.abs(x) < 0.032 && z > 0.055) {
                     noseWidthArr.push({ idx: i, weight: 1.0 });
                   }
-                  // Nose Profile: bridge & tip projection
+                  // Nose Profile
                   if (y >= 1.56 && y <= 1.67 && Math.abs(x) < 0.022 && z > 0.05) {
                     noseProfileArr.push({ idx: i, weight: 1.0 });
                   }
@@ -309,6 +347,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
         scene.add(model);
         setModelLoading(false);
+
+        // Apply initial pasted texture if imageUrl exists
+        if (imageUrl && viewMode === 'pasted-2d') {
+          applyFaceTexture('pasted-2d', imageUrl);
+        }
       },
       undefined,
       (err) => {
@@ -355,7 +398,126 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     };
   }, []);
 
-  // 2. Real-time Facial Structure Morphing on the character.fbx Mesh
+  // 2. Load and Paste 2D Case Sketch directly onto 3D Character Head
+  const applyFaceTexture = (view: ViewMode, imgUrl?: string) => {
+    if (!bodyMeshRef.current) return;
+
+    const mats = Array.isArray(bodyMeshRef.current.material)
+      ? bodyMeshRef.current.material
+      : [bodyMeshRef.current.material];
+    const bodyMat = (mats.find((m: any) => m.name === 'Body_MAT') || mats[0]) as THREE.MeshStandardMaterial;
+    const reflectorMat = mats.find((m: any) => m.name === 'Reflectors');
+
+    if (reflectorMat) {
+      reflectorMat.visible = showMarkers;
+    }
+
+    if (!bodyMat) return;
+
+    if (view === 'wireframe') {
+      bodyMat.wireframe = true;
+      bodyMat.needsUpdate = true;
+      return;
+    } else {
+      bodyMat.wireframe = false;
+    }
+
+    if (view === 'native-3d' || !imgUrl) {
+      // Revert to original Mixamo default texture
+      if (originalTextureRef.current) {
+        bodyMat.map = originalTextureRef.current;
+        bodyMat.needsUpdate = true;
+      }
+      if (eyesMeshRef.current) eyesMeshRef.current.visible = true;
+      if (teethMeshRef.current) teethMeshRef.current.visible = true;
+      if (browsMeshRef.current) browsMeshRef.current.visible = true;
+      if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
+      return;
+    }
+
+    // view === 'pasted-2d':
+    // Hide occluding cartoon sub-meshes so the 2D sketch face features (eyes, glasses, lips) are cleanly visible
+    if (eyesMeshRef.current) eyesMeshRef.current.visible = false;
+    if (teethMeshRef.current) teethMeshRef.current.visible = false;
+    if (browsMeshRef.current) browsMeshRef.current.visible = false;
+    if (carunculaMeshRef.current) carunculaMeshRef.current.visible = false;
+
+    // Composite 2D sketch face directly onto base diffuse texture via Canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 2048;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const renderComposite = (baseImgElement: CanvasImageSource) => {
+      // 1. Draw base suit and scalp texture
+      ctx.drawImage(baseImgElement, 0, 0, 2048, 2048);
+
+      // 2. Load and composite the 2D sketch face
+      const sketchImg = new Image();
+      sketchImg.crossOrigin = 'anonymous';
+      sketchImg.onload = () => {
+        // Offscreen canvas for elliptical radial feathering
+        const drawSize = 755;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = drawSize;
+        tempCanvas.height = drawSize;
+        const tctx = tempCanvas.getContext('2d');
+        if (!tctx) return;
+
+        tctx.drawImage(sketchImg, 0, 0, drawSize, drawSize);
+
+        // Feather edges to blend naturally into the character's scalp and neck
+        tctx.globalCompositeOperation = 'destination-in';
+        const centerX = drawSize * 0.5;
+        const centerY = drawSize * 0.52;
+        const grad = tctx.createRadialGradient(
+          centerX, centerY, drawSize * 0.22,
+          centerX, centerY, drawSize * 0.45
+        );
+        grad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
+        grad.addColorStop(0.72, 'rgba(0, 0, 0, 0.95)');
+        grad.addColorStop(0.88, 'rgba(0, 0, 0, 0.4)');
+        grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+
+        tctx.fillStyle = grad;
+        tctx.fillRect(0, 0, drawSize, drawSize);
+
+        // Paste onto face region on 2048x2048 diffuse map (Eye Y: 690, Mouth Y: 856, Center X: 546)
+        const drawX = 169;
+        const drawY = 358;
+        ctx.drawImage(tempCanvas, drawX, drawY);
+
+        const canvasTexture = new THREE.CanvasTexture(canvas);
+        canvasTexture.colorSpace = THREE.SRGBColorSpace;
+        canvasTexture.flipY = false;
+        canvasTexture.wrapS = THREE.ClampToEdgeWrapping;
+        canvasTexture.wrapT = THREE.ClampToEdgeWrapping;
+        canvasTexture.generateMipmaps = true;
+
+        compositedTextureRef.current = canvasTexture;
+        bodyMat.map = canvasTexture;
+        bodyMat.needsUpdate = true;
+      };
+      sketchImg.src = imgUrl;
+    };
+
+    if (originalTextureRef.current?.image && (originalTextureRef.current.image as any).width) {
+      renderComposite(originalTextureRef.current.image as CanvasImageSource);
+    } else {
+      const baseImg = new Image();
+      baseImg.crossOrigin = 'anonymous';
+      baseImg.onload = () => renderComposite(baseImg);
+      baseImg.src = '/models/mocap_diffuse_extracted.png';
+    }
+  };
+
+  // Re-apply face texture whenever imageUrl or viewMode changes
+  useEffect(() => {
+    applyFaceTexture(viewMode, imageUrl);
+  }, [viewMode, imageUrl]);
+
+  // 3. Real-time Facial Structure Morphing on character.fbx
   useEffect(() => {
     if (!bodyMeshRef.current || !basePositionsRef.current || !facialIndicesRef.current) return;
 
@@ -365,7 +527,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     const basePos = basePositionsRef.current;
     const fac = facialIndicesRef.current;
 
-    // Reset base positions first for face vertices
+    // Reset base positions
     currentPos.set(basePos);
 
     // Compute slider deltas (-1.0 to +1.0 centered at 50)
@@ -376,7 +538,6 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     const dBrow = (browDensity - 50) / 50;
     const dLip = (lipFullness - 50) / 50;
 
-    // Face Shape Modifiers
     let shapeJawX = 0;
     let shapeZygX = 0;
     let shapeChinZ = 0;
@@ -409,7 +570,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       shapeChinZ -= 0.006;
     }
 
-    // 1. Mandible / Jaw Width deformation
+    // 1. Mandible / Jaw Width
     fac.mandible.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
       const x0 = basePos[pIdx];
@@ -430,7 +591,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       currentPos[pIdx] = x0 + Math.sign(x0) * (dNoseW * 0.004) * weight;
     });
 
-    // 4. Nose Profile (bridge & tip)
+    // 4. Nose Profile
     fac.noseProfile.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
       currentPos[pIdx + 2] = basePos[pIdx + 2] + (dNoseP * 0.007) * weight;
@@ -465,36 +626,41 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     geom.computeVertexNormals();
   }, [jawWidth, noseWidth, noseProfile, eyeSize, browDensity, lipFullness, ageYears, faceShape, chinStyle]);
 
-  // 3. Toggle Hat / Cap visibility
+  // 4. Toggle Hat / Cap visibility ("without their cap as reference")
   useEffect(() => {
     if (hatMeshRef.current) {
       hatMeshRef.current.visible = showCap;
     }
   }, [showCap]);
 
-  // 4. Toggle Landmarks / MoCap Markers visibility
+  // 5. Toggle Landmarks / MoCap Markers visibility
   useEffect(() => {
     if (landmarksGroupRef.current) {
       landmarksGroupRef.current.visible = showMarkers;
     }
+    if (bodyMeshRef.current) {
+      const mats = Array.isArray(bodyMeshRef.current.material)
+        ? bodyMeshRef.current.material
+        : [bodyMeshRef.current.material];
+      mats.forEach((m: any) => {
+        if (m.name === 'Reflectors') {
+          m.visible = showMarkers;
+        }
+      });
+    }
+    if (hatMeshRef.current) {
+      const mats = Array.isArray((hatMeshRef.current as any).material)
+        ? (hatMeshRef.current as any).material
+        : [(hatMeshRef.current as any).material];
+      mats.forEach((m: any) => {
+        if (m.name === 'Reflectors') {
+          m.visible = showMarkers;
+        }
+      });
+    }
   }, [showMarkers]);
 
-  // 5. View Mode (Textured / Wireframe / Clay)
-  useEffect(() => {
-    if (!characterModelRef.current) return;
-
-    characterModelRef.current.traverse((child: any) => {
-      if (child.isMesh && child.material) {
-        if (viewMode === 'wireframe') {
-          child.material.wireframe = true;
-        } else {
-          child.material.wireframe = false;
-        }
-      }
-    });
-  }, [viewMode]);
-
-  // 6. Preset Camera Angles
+  // 7. Preset Camera Angles
   const setCameraAngle = (angle: 'front' | 'threeQuarter' | 'profile') => {
     if (!cameraRef.current || !controlsRef.current || !characterModelRef.current) return;
     setActiveAngle(angle);
@@ -532,11 +698,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
                 character.fbx 3D Model
               </span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-950/80 border border-cyan-800/60 text-cyan-400">
-                Native Mixamo Model
+                2D-to-3D Face Projection
               </span>
             </div>
             <p className="text-[10px] text-parchment-400 font-mono">
-              Bust to Shoulders &bull; Natural Scalp (No Cap) &bull; Real-time Morph
+              2D Suspect Face Pasted on 3D Bust &bull; Natural Scalp (No Cap) &bull; Real-time Morph
             </p>
           </div>
         </div>
@@ -599,10 +765,10 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] uppercase font-mono font-bold text-cyan-400 tracking-wider flex items-center gap-1">
                 <Crosshair className="w-3 h-3" />
-                2D Case Sketch Reference
+                2D Case Sketch (Source)
               </span>
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-noir-950 border border-noir-700 text-parchment-300">
-                Source
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300">
+                Pasted to 3D
               </span>
             </div>
 
@@ -624,14 +790,14 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
                 <div className="text-center p-4 text-parchment-400 font-mono text-xs space-y-1">
                   <User className="w-8 h-8 mx-auto text-parchment-600 mb-2" />
                   <p className="font-bold text-white">No 2D Sketch Yet</p>
-                  <p className="text-[10px] text-parchment-400">Generate a sketch first to reference here</p>
+                  <p className="text-[10px] text-parchment-400">Generate a sketch to paste its face on the 3D model</p>
                 </div>
               )}
 
               <div className="absolute bottom-2 left-2 z-10">
                 <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-noir-900/90 text-emerald-400 border border-noir-700 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  2D Reference Artifact
+                  2D Face Projection Active
                 </span>
               </div>
             </div>
@@ -649,16 +815,30 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
             <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-noir-900/90 p-0.5 rounded-lg border border-noir-700/80 backdrop-blur-sm shadow-md">
               <button
                 type="button"
-                onClick={() => setViewMode('textured')}
+                onClick={() => setViewMode('pasted-2d')}
+                className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
+                  viewMode === 'pasted-2d'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-parchment-300 hover:text-white'
+                }`}
+                title="Paste the 2D Case Sketch Face onto the 3D Model"
+              >
+                <Sparkles className="w-3 h-3" />
+                Pasted 2D Face
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('native-3d')}
                 className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
-                  viewMode === 'textured'
+                  viewMode === 'native-3d'
                     ? 'bg-cyan-600 text-white shadow-sm'
                     : 'text-parchment-300 hover:text-white'
                 }`}
-                title="Default Textured 3D Model"
+                title="Original 3D Model Texture"
               >
                 <User className="w-3 h-3" />
-                Textured
+                Default Face
               </button>
 
               <button
@@ -669,7 +849,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
                     ? 'bg-cyan-600 text-white shadow-sm'
                     : 'text-parchment-300 hover:text-white'
                 }`}
-                title="Anatomical Wireframe Grid"
+                title="Wireframe Grid"
               >
                 <Layers className="w-3 h-3" />
                 Grid
