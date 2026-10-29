@@ -6,7 +6,6 @@ import { api } from '../api/client';
 import {
   RotateCcw,
   Box,
-  Layers,
   Sparkles,
   Play,
   Pause,
@@ -14,9 +13,6 @@ import {
   Columns2,
   Crosshair,
   User,
-  Sliders,
-  Check,
-  Eye,
 } from 'lucide-react';
 
 export interface GNMViewerProps {
@@ -33,7 +29,6 @@ export interface GNMViewerProps {
   className?: string;
 }
 
-type ViewMode = 'pasted-2d' | 'native-3d' | 'wireframe';
 type LayoutMode = 'split' | '3d-only' | '2d-only';
 
 export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
@@ -56,18 +51,18 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
 
-  // References to Character model meshes
+  // References to Character model meshes and bones
   const characterModelRef = useRef<THREE.Group | null>(null);
+  const headBoneRef = useRef<THREE.Object3D | null>(null);
   const bodyMeshRef = useRef<THREE.SkinnedMesh | null>(null);
   const hatMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
   const eyesMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
   const teethMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
   const browsMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
   const carunculaMeshRef = useRef<THREE.SkinnedMesh | THREE.Mesh | null>(null);
-  const landmarksGroupRef = useRef<THREE.Group | null>(null);
   const originalTextureRef = useRef<THREE.Texture | null>(null);
   const compositedTextureRef = useRef<THREE.CanvasTexture | null>(null);
-  const lastBakedUrlRef = useRef<string | null>(null);
+  const lastBakedKeyRef = useRef<string | null>(null);
   const baseImgRef = useRef<CanvasImageSource | null>(null);
 
   // Base positions and vertex indices for real-time morphing of character.fbx
@@ -84,12 +79,10 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   } | null>(null);
 
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('split');
-  const [viewMode, setViewMode] = useState<ViewMode>('pasted-2d'); // Default: Paste 2D face on 3D model!
   const [textureStatus, setTextureStatus] = useState<'idle' | 'baking' | 'pasted' | 'failed'>('idle');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAngle, setActiveAngle] = useState<'front' | 'threeQuarter' | 'profile'>('front');
   const [showCap, setShowCap] = useState<boolean>(false); // Default: without their cap!
-  const [showMarkers, setShowMarkers] = useState<boolean>(false); // Default: clean face without giant white balls
   const [modelLoading, setModelLoading] = useState<boolean>(true);
   const [modelReady, setModelReady] = useState<boolean>(false);
 
@@ -113,7 +106,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     };
   }, [jawWidth, noseWidth, noseProfile]);
 
-  // 1. Initialize Three.js Scene and Load character.glb (converted from character.fbx)
+  // 1. Initialize Three.js Scene and Load character.glb
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -123,12 +116,12 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0e1118);
+    scene.background = new THREE.Color(0x0a0c10);
     sceneRef.current = scene;
 
-    // Camera: Centered on the character's head and shoulders
+    // Camera: Focused bust framing of suspect's face and upper shoulders
     const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 50);
-    camera.position.set(0, 1.56, 0.88); // Close-up bust framing
+    camera.position.set(0, 1.56, 0.88);
     cameraRef.current = camera;
 
     // WebGL Renderer
@@ -140,7 +133,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
 
-    // Orbit Controls: Focus target is the suspect's face center
+    // Orbit Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -151,66 +144,25 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     controls.target.set(0, 1.54, 0.02);
     controlsRef.current = controls;
 
-    // Lighting (Warm Key, Cool Fill, Back Rim Light)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    // Studio Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.4);
+    const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.45);
     keyLight.position.set(0.6, 2.3, 2.2);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x7dd3fc, 0.7);
+    const fillLight = new THREE.DirectionalLight(0x7dd3fc, 0.75);
     fillLight.position.set(-1.8, 1.6, 1.5);
     scene.add(fillLight);
 
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.1);
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.15);
     rimLight.position.set(0, 2.5, -1.8);
     scene.add(rimLight);
 
-    const chinLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    const chinLight = new THREE.DirectionalLight(0xffffff, 0.4);
     chinLight.position.set(0, 0.8, 1.2);
     scene.add(chinLight);
-
-    // Subtle Anthropometric MoCap Tracking Spheres (forehead, chin, shoulders, chest)
-    const landmarksGroup = new THREE.Group();
-    const markerMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.15,
-      metalness: 0.05,
-    });
-    const bezelMat = new THREE.MeshStandardMaterial({
-      color: 0x881337,
-      roughness: 0.6,
-    });
-    const markerSphere = new THREE.SphereGeometry(0.012, 16, 16);
-    const bezelGeom = new THREE.CylinderGeometry(0.016, 0.016, 0.004, 16);
-
-    const markerPositions = [
-      new THREE.Vector3(-0.065, 1.70, 0.092), // Left Forehead Temple
-      new THREE.Vector3(0.065, 1.70, 0.092),  // Right Forehead Temple
-      new THREE.Vector3(0, 1.48, 0.108),       // Chin (Pogonion)
-      new THREE.Vector3(0, 1.34, 0.082),       // Clavicle / Upper Chest
-      new THREE.Vector3(0, 1.22, 0.088),       // Mid-Sternum
-      new THREE.Vector3(-0.19, 1.37, 0.015),   // Left Shoulder Joint
-      new THREE.Vector3(0.19, 1.37, 0.015),    // Right Shoulder Joint
-      new THREE.Vector3(-0.38, 1.34, -0.01),   // Left Outer Arm
-      new THREE.Vector3(0.38, 1.34, -0.01),    // Right Outer Arm
-    ];
-
-    markerPositions.forEach((pos) => {
-      const obj = new THREE.Group();
-      const sphere = new THREE.Mesh(markerSphere, markerMat);
-      const bezel = new THREE.Mesh(bezelGeom, bezelMat);
-      bezel.rotation.x = Math.PI / 2;
-      obj.add(bezel);
-      obj.add(sphere);
-      obj.position.copy(pos);
-      landmarksGroup.add(obj);
-    });
-
-    landmarksGroup.visible = false; // Default OFF for clean face presentation
-    scene.add(landmarksGroup);
-    landmarksGroupRef.current = landmarksGroup;
 
     // Load character.glb (converted directly from character.fbx)
     setModelLoading(true);
@@ -221,14 +173,20 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
         const model = gltf.scene;
         characterModelRef.current = model;
 
-        // Traverse model to configure meshes and force 100% solidity (fixes see-through transparency)
+        // Obtain Head Bone for skeletal craniofacial morphing
+        const headBone = model.getObjectByName('mixamorig:Head');
+        if (headBone) {
+          headBoneRef.current = headBone;
+        }
+
+        // Traverse model to configure meshes and force 100% solidity
         model.traverse((child: any) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
             child.renderOrder = 0;
 
-            // Force solid opacity and depth writing on ALL materials (prevents seeing through head/body)
+            // Force solid opacity and depth writing on ALL materials (prevents see-through)
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             mats.forEach((mat: any) => {
               if (mat) {
@@ -252,7 +210,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
             // 2. Eyes mesh (Keep visible and solid so 3D eyes are present from all angles!)
             if (name.includes('eye')) {
               eyesMeshRef.current = child;
-              child.visible = true; // Kept solid and visible - eyes not missing!
+              child.visible = true;
               const eyeMats = Array.isArray(child.material) ? child.material : [child.material];
               eyeMats.forEach((m: any) => {
                 if (m) {
@@ -260,7 +218,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
                   m.opacity = 1.0;
                   m.depthWrite = true;
                   m.depthTest = true;
-                  m.roughness = 0.15; // Natural corneal specular reflection
+                  m.roughness = 0.15;
                   m.needsUpdate = true;
                 }
               });
@@ -293,12 +251,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               });
             }
 
-            // 6. Body mesh (contains head, face, neck, and shoulders)
+            // 6. Body mesh (contains head, face, neck, and torso)
             if (name.includes('body')) {
               const bodyMesh = child as THREE.SkinnedMesh;
               bodyMeshRef.current = bodyMesh;
 
-              // Safely access materials (Body_MAT is index 0, Reflectors is index 1)
               const bodyMat = (mats.find((m: any) => m.name === 'Body_MAT') || mats[0]) as THREE.MeshStandardMaterial;
               const reflectorMat = mats.find((m: any) => m.name === 'Reflectors');
 
@@ -313,7 +270,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               }
 
               if (reflectorMat) {
-                reflectorMat.visible = false; // Hide mocap balls by default
+                reflectorMat.visible = false; // Never show mocap tracking balls
               }
 
               const geom = bodyMesh.geometry;
@@ -322,7 +279,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               const basePos = new Float32Array(posAttr.array);
               basePositionsRef.current = basePos;
 
-              // Precompute facial region indices based on coordinate bounds
+              // Precompute facial region weights with continuous Gaussian radial falloffs
               const mandible: { idx: number; weight: number }[] = [];
               const chin: { idx: number; weight: number }[] = [];
               const noseWidthArr: { idx: number; weight: number }[] = [];
@@ -337,40 +294,77 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
                 const y = basePos[i * 3 + 1];
                 const z = basePos[i * 3 + 2];
 
-                // Face region is y in [1.45, 1.76] and z > 0.015 (front of head)
-                if (y >= 1.45 && y <= 1.76 && z > 0.015) {
+                if (y >= 1.44 && y <= 1.76 && z > 0.005) {
                   // Mandible / Jawline
-                  if (y >= 1.47 && y <= 1.58 && Math.abs(x) > 0.028) {
-                    const w = Math.min(1.0, (Math.abs(x) - 0.028) / 0.035);
-                    mandible.push({ idx: i, weight: w });
+                  const dyJaw = (y - 1.51) / 0.08;
+                  const dxJaw = (Math.abs(x) - 0.048) / 0.045;
+                  const dzJaw = (z - 0.035) / 0.06;
+                  const dSqJaw = dyJaw * dyJaw + dxJaw * dxJaw + dzJaw * dzJaw;
+                  if (dSqJaw < 2.5) {
+                    mandible.push({ idx: i, weight: Math.exp(-dSqJaw) });
                   }
+
                   // Chin
-                  if (y >= 1.46 && y <= 1.53 && Math.abs(x) < 0.03 && z > 0.05) {
-                    chin.push({ idx: i, weight: 1.0 });
+                  const dyChin = (y - 1.485) / 0.045;
+                  const dxChin = x / 0.032;
+                  const dzChin = (z - 0.055) / 0.04;
+                  const dSqChin = dyChin * dyChin + dxChin * dxChin + dzChin * dzChin;
+                  if (dSqChin < 2.5) {
+                    chin.push({ idx: i, weight: Math.exp(-dSqChin) });
                   }
+
                   // Nose Width
-                  if (y >= 1.56 && y <= 1.63 && Math.abs(x) < 0.032 && z > 0.055) {
-                    noseWidthArr.push({ idx: i, weight: 1.0 });
+                  const dyNoseW = (y - 1.595) / 0.05;
+                  const dxNoseW = x / 0.032;
+                  const dzNoseW = (z - 0.065) / 0.035;
+                  const dSqNoseW = dyNoseW * dyNoseW + dxNoseW * dxNoseW + dzNoseW * dzNoseW;
+                  if (dSqNoseW < 2.5) {
+                    noseWidthArr.push({ idx: i, weight: Math.exp(-dSqNoseW) });
                   }
+
                   // Nose Profile
-                  if (y >= 1.56 && y <= 1.67 && Math.abs(x) < 0.022 && z > 0.05) {
-                    noseProfileArr.push({ idx: i, weight: 1.0 });
+                  const dyNoseP = (y - 1.61) / 0.06;
+                  const dxNoseP = x / 0.022;
+                  const dzNoseP = (z - 0.068) / 0.035;
+                  const dSqNoseP = dyNoseP * dyNoseP + dxNoseP * dxNoseP + dzNoseP * dzNoseP;
+                  if (dSqNoseP < 2.5) {
+                    noseProfileArr.push({ idx: i, weight: Math.exp(-dSqNoseP) });
                   }
+
                   // Zygoma / Cheeks
-                  if (y >= 1.59 && y <= 1.66 && Math.abs(x) >= 0.045 && Math.abs(x) <= 0.085) {
-                    zygoma.push({ idx: i, weight: 1.0 });
+                  const dyZyg = (y - 1.625) / 0.045;
+                  const dxZyg = (Math.abs(x) - 0.06) / 0.035;
+                  const dzZyg = (z - 0.03) / 0.05;
+                  const dSqZyg = dyZyg * dyZyg + dxZyg * dxZyg + dzZyg * dzZyg;
+                  if (dSqZyg < 2.5) {
+                    zygoma.push({ idx: i, weight: Math.exp(-dSqZyg) });
                   }
+
                   // Brow ridge
-                  if (y >= 1.66 && y <= 1.72 && z > 0.055) {
-                    brows.push({ idx: i, weight: 1.0 });
+                  const dyBrow = (y - 1.69) / 0.035;
+                  const dxBrow = (Math.abs(x) - 0.035) / 0.038;
+                  const dzBrow = (z - 0.055) / 0.035;
+                  const dSqBrow = dyBrow * dyBrow + dxBrow * dxBrow + dzBrow * dzBrow;
+                  if (dSqBrow < 2.5) {
+                    brows.push({ idx: i, weight: Math.exp(-dSqBrow) });
                   }
+
                   // Lips
-                  if (y >= 1.52 && y <= 1.57 && Math.abs(x) < 0.032 && z > 0.058) {
-                    lips.push({ idx: i, weight: 1.0 });
+                  const dyLip = (y - 1.545) / 0.03;
+                  const dxLip = x / 0.032;
+                  const dzLip = (z - 0.06) / 0.03;
+                  const dSqLip = dyLip * dyLip + dxLip * dxLip + dzLip * dzLip;
+                  if (dSqLip < 2.5) {
+                    lips.push({ idx: i, weight: Math.exp(-dSqLip) });
                   }
-                  // Eyes
-                  if (y >= 1.62 && y <= 1.66 && Math.abs(x) >= 0.022 && Math.abs(x) <= 0.05) {
-                    eyesArr.push({ idx: i, weight: 1.0 });
+
+                  // Eyes socket region
+                  const dyEye = (y - 1.64) / 0.03;
+                  const dxEye = (Math.abs(x) - 0.038) / 0.025;
+                  const dzEye = (z - 0.04) / 0.03;
+                  const dSqEye = dyEye * dyEye + dxEye * dxEye + dzEye * dzEye;
+                  if (dSqEye < 2.5) {
+                    eyesArr.push({ idx: i, weight: Math.exp(-dSqEye) });
                   }
                 }
               }
@@ -389,7 +383,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
           }
         });
 
-        // Pose arms naturally down along the torso so hands never stick out or cross the head in profile
+        // Pose arms naturally down along the torso so hands never protrude into bust view
         const leftArm = model.getObjectByName('mixamorig:LeftArm');
         const rightArm = model.getObjectByName('mixamorig:RightArm');
         if (leftArm) {
@@ -416,7 +410,6 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       if (controlsRef.current) {
         if (autoRotate && characterModelRef.current) {
           characterModelRef.current.rotation.y += 0.008;
-          if (landmarksGroupRef.current) landmarksGroupRef.current.rotation.y = characterModelRef.current.rotation.y;
         }
         controlsRef.current.update();
       }
@@ -441,16 +434,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
         container.removeChild(rendererRef.current.domElement);
       }
       renderer.dispose();
-      markerSphere.dispose();
-      bezelGeom.dispose();
-      markerMat.dispose();
-      bezelMat.dispose();
     };
   }, []);
 
   // Helper: Bulletproof image source loader that handles Blob, DataURL, API files, and CORS
   const fetchImageSource = async (url: string): Promise<CanvasImageSource> => {
-    // Case 1: If url is already a blob URL or data URL
     if (url.startsWith('blob:') || url.startsWith('data:')) {
       return new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
@@ -460,7 +448,6 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       });
     }
 
-    // Case 2: If url is our API files endpoint or relative path
     if (url.includes('/api/files/') || url.startsWith('/')) {
       try {
         const res = await api.get(url, { responseType: 'blob' });
@@ -489,7 +476,6 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       }
     }
 
-    // Case 3: Try standard fetch -> blob -> createImageBitmap
     try {
       const res = await fetch(url, { mode: 'cors' });
       if (res.ok) {
@@ -513,7 +499,6 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       }
     } catch (e) {}
 
-    // Case 4: Fallback to standard Image element
     return new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -549,8 +534,8 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   };
 
   // 2. Make 2D Image into a Three.js Texture and Add directly to 3D Model Face
-  const applyFaceTexture = async (view: ViewMode, imgUrl?: string) => {
-    if (!bodyMeshRef.current) return;
+  const applyFaceTexture = async (imgUrl?: string) => {
+    if (!bodyMeshRef.current || !imgUrl) return;
 
     const mats = Array.isArray(bodyMeshRef.current.material)
       ? bodyMeshRef.current.material
@@ -559,59 +544,12 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     const reflectorMat = mats.find((m: any) => m.name === 'Reflectors');
 
     if (reflectorMat) {
-      reflectorMat.visible = showMarkers;
+      reflectorMat.visible = false;
     }
 
     if (!bodyMat) return;
 
-    if (view === 'wireframe') {
-      bodyMat.wireframe = true;
-      bodyMat.needsUpdate = true;
-      return;
-    } else {
-      bodyMat.wireframe = false;
-    }
-
-    if (view === 'native-3d' || !imgUrl) {
-      // Revert to original Mixamo default texture
-      if (originalTextureRef.current) {
-        bodyMat.map = originalTextureRef.current;
-        bodyMat.map.needsUpdate = true;
-        bodyMat.transparent = false;
-        bodyMat.opacity = 1.0;
-        bodyMat.depthWrite = true;
-        bodyMat.depthTest = true;
-        bodyMat.needsUpdate = true;
-      }
-      if (eyesMeshRef.current) eyesMeshRef.current.visible = true;
-      if (teethMeshRef.current) teethMeshRef.current.visible = true;
-      if (browsMeshRef.current) browsMeshRef.current.visible = true;
-      if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
-      setTextureStatus('idle');
-      return;
-    }
-
-    // view === 'pasted-2d':
-    // If already composited for this exact imageUrl, reuse it directly!
-    if (compositedTextureRef.current && lastBakedUrlRef.current === imgUrl) {
-      bodyMat.map = compositedTextureRef.current;
-      bodyMat.map.needsUpdate = true;
-      bodyMat.wireframe = false;
-      bodyMat.transparent = false;
-      bodyMat.opacity = 1.0;
-      bodyMat.depthWrite = true;
-      bodyMat.depthTest = true;
-      bodyMat.needsUpdate = true;
-
-      if (eyesMeshRef.current) eyesMeshRef.current.visible = true;
-      if (teethMeshRef.current) teethMeshRef.current.visible = false;
-      if (browsMeshRef.current) browsMeshRef.current.visible = false;
-      if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
-      setTextureStatus('pasted');
-      return;
-    }
-
-    // Keep 3D eyes solid and visible so they are never missing from front or profile!
+    // Keep 3D eyes solid and visible so they are never missing
     if (eyesMeshRef.current) {
       eyesMeshRef.current.visible = true;
       const eyeMats = Array.isArray((eyesMeshRef.current as any).material)
@@ -629,24 +567,32 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       });
     }
     if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
-
-    // Only hide teeth and 3D brows so cartoon teeth do not poke through the closed mouth
     if (teethMeshRef.current) teethMeshRef.current.visible = false;
     if (browsMeshRef.current) browsMeshRef.current.visible = false;
+
+    // Cache key incorporates image URL and jaw width so texture adapts to morphological changes
+    const dJaw = (jawWidth - 50) / 50;
+    const dNoseP = (noseProfile - 50) / 50;
+    const bakeKey = `${imgUrl}__j${Math.round(jawWidth)}__n${Math.round(noseProfile)}`;
+
+    if (compositedTextureRef.current && lastBakedKeyRef.current === bakeKey) {
+      bodyMat.map = compositedTextureRef.current;
+      bodyMat.map.needsUpdate = true;
+      bodyMat.needsUpdate = true;
+      setTextureStatus('pasted');
+      return;
+    }
 
     setTextureStatus('baking');
 
     try {
-      // 1. Load the 2D sketch image
       const sketchSource = await fetchImageSource(imgUrl);
 
-      // 2. Ensure base texture image is ready
       if (!baseImgRef.current) {
         baseImgRef.current = await loadBaseDiffuseTexture();
       }
       const baseSource = baseImgRef.current;
 
-      // 3. Composite 2D sketch directly onto the 3D model diffuse texture map (2048x2048)
       const canvas = document.createElement('canvas');
       canvas.width = 2048;
       canvas.height = 2048;
@@ -655,17 +601,11 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       // Draw base skin and suit
       ctx.drawImage(baseSource, 0, 0, 2048, 2048);
 
-      // Exact UV facial coordinates on character.glb:
-      // UV center X = 546
-      // UV Eyes Y = 692
-      // UV Nose Y = 830
-      // UV Lips Y = 845
-      // UV Chin Y = 1152
-      // UV Forehead Y = 513
-      const destW = 760;
-      const destH = 880;
-      const destX = Math.round(546 - destW * 0.5); // 166
-      const destY = Math.round(692 - destH * 0.40); // 340
+      // Dynamically scale face texture patch according to jaw width and profile
+      const destW = Math.round(760 * (1.0 + dJaw * 0.14));
+      const destH = Math.round(880 * (1.0 + dNoseP * 0.08));
+      const destX = Math.round(546 - destW * 0.5);
+      const destY = Math.round(692 - destH * 0.40);
 
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = destW;
@@ -699,10 +639,10 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       // Paste onto facial UV region on diffuse map
       ctx.drawImage(tempCanvas, destX, destY);
 
-      // 4. Create Three.js Texture directly from the canvas and add it to the 3D model!
+      // Create Three.js Texture directly from the canvas
       const faceTexture = new THREE.CanvasTexture(canvas);
       faceTexture.colorSpace = THREE.SRGBColorSpace;
-      faceTexture.flipY = false; // glTF standard
+      faceTexture.flipY = false;
       faceTexture.wrapS = THREE.ClampToEdgeWrapping;
       faceTexture.wrapT = THREE.ClampToEdgeWrapping;
       faceTexture.generateMipmaps = true;
@@ -711,7 +651,7 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       faceTexture.needsUpdate = true;
 
       compositedTextureRef.current = faceTexture;
-      lastBakedUrlRef.current = imgUrl;
+      lastBakedKeyRef.current = bakeKey;
 
       bodyMat.map = faceTexture;
       bodyMat.map.needsUpdate = true;
@@ -732,14 +672,14 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     }
   };
 
-  // Re-apply face texture whenever imageUrl, viewMode, or modelReady changes
+  // Re-apply face texture whenever imageUrl or modelReady changes
   useEffect(() => {
     if (modelReady && imageUrl) {
-      applyFaceTexture(viewMode, imageUrl);
+      applyFaceTexture(imageUrl);
     }
-  }, [viewMode, imageUrl, modelReady]);
+  }, [imageUrl, modelReady]);
 
-  // 3. Real-time Facial Structure Morphing on character.fbx
+  // 3. Real-time Facial Structure Morphing on character.fbx based on suspect parameters
   useEffect(() => {
     if (!bodyMeshRef.current || !basePositionsRef.current || !facialIndicesRef.current) return;
 
@@ -761,91 +701,129 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     const dLip = (lipFullness - 50) / 50;
 
     let shapeJawX = 0;
-    let shapeZygX = 0;
     let shapeChinZ = 0;
+    let shapeChinY = 0;
+    let shapeZygX = 0;
+    let shapeHeadX = 0;
+    let shapeHeadY = 0;
+    let shapeHeadZ = 0;
 
-    const fShape = faceShape.toLowerCase();
+    const fShape = (faceShape || '').toLowerCase();
     if (fShape.includes('square')) {
-      shapeJawX = 0.007;
-      shapeChinZ = 0.003;
+      shapeJawX = 0.016;
+      shapeChinZ = 0.008;
+      shapeHeadX = 0.07;
+      shapeHeadZ = 0.04;
     } else if (fShape.includes('diamond')) {
-      shapeZygX = 0.008;
-      shapeJawX = -0.004;
+      shapeZygX = 0.018;
+      shapeJawX = -0.010;
+      shapeHeadX = 0.04;
+      shapeHeadY = 0.03;
     } else if (fShape.includes('round')) {
-      shapeZygX = 0.006;
-      shapeJawX = -0.002;
+      shapeZygX = 0.014;
+      shapeJawX = 0.008;
+      shapeHeadX = 0.06;
+      shapeHeadY = -0.04;
     } else if (fShape.includes('heart')) {
-      shapeJawX = -0.006;
-      shapeChinZ = 0.003;
+      shapeJawX = -0.014;
+      shapeChinZ = 0.009;
+      shapeHeadX = -0.05;
+      shapeHeadZ = 0.03;
     } else if (fShape.includes('oblong')) {
-      shapeJawX = -0.003;
+      shapeJawX = -0.008;
+      shapeHeadX = -0.04;
+      shapeHeadY = 0.07;
     }
 
-    const cStyle = chinStyle.toLowerCase();
+    const cStyle = (chinStyle || '').toLowerCase();
     if (cStyle.includes('square') || cStyle.includes('heavy')) {
-      shapeJawX += 0.004;
-      shapeChinZ += 0.004;
+      shapeJawX += 0.012;
+      shapeChinZ += 0.010;
+      shapeHeadX += 0.05;
+      shapeHeadZ += 0.03;
     } else if (cStyle.includes('pointed') || cStyle.includes('sharp')) {
-      shapeJawX -= 0.004;
-      shapeChinZ += 0.005;
+      shapeJawX -= 0.012;
+      shapeChinZ += 0.012;
+      shapeChinY -= 0.008;
+      shapeHeadX -= 0.05;
+      shapeHeadZ += 0.04;
     } else if (cStyle.includes('receding')) {
-      shapeChinZ -= 0.006;
+      shapeChinZ -= 0.014;
+      shapeHeadZ -= 0.05;
     }
 
-    // 1. Mandible / Jaw Width
+    // 1. Mandible / Jaw Width (Visibly flares outwards on X and forwards on Z)
     fac.mandible.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
       const x0 = basePos[pIdx];
-      const delta = (dJaw * 0.009 + shapeJawX) * weight;
-      currentPos[pIdx] = x0 + Math.sign(x0) * delta;
+      const deltaX = (dJaw * 0.026 + shapeJawX) * weight;
+      const deltaZ = (dJaw * 0.012) * weight;
+      currentPos[pIdx] = x0 + Math.sign(x0) * deltaX;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + deltaZ;
     });
 
-    // 2. Chin projection
+    // 2. Chin projection & vertical length
     fac.chin.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
-      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dJaw * 0.005 + shapeChinZ) * weight;
+      const deltaZ = (dJaw * 0.020 + shapeChinZ) * weight;
+      const deltaY = (shapeChinY) * weight;
+      currentPos[pIdx + 1] = basePos[pIdx + 1] + deltaY;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + deltaZ;
     });
 
     // 3. Nose Width
     fac.noseWidth.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
       const x0 = basePos[pIdx];
-      currentPos[pIdx] = x0 + Math.sign(x0) * (dNoseW * 0.004) * weight;
+      currentPos[pIdx] = x0 + Math.sign(x0) * (dNoseW * 0.016) * weight;
     });
 
-    // 4. Nose Profile
+    // 4. Nose Profile (Dorsal hump & bridge projection)
     fac.noseProfile.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
-      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dNoseP * 0.007) * weight;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dNoseP * 0.024) * weight;
     });
 
     // 5. Zygoma (Cheekbones)
     fac.zygoma.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
       const x0 = basePos[pIdx];
-      currentPos[pIdx] = x0 + Math.sign(x0) * (shapeZygX) * weight;
+      currentPos[pIdx] = x0 + Math.sign(x0) * (shapeZygX * 1.5 + (jawWidth > 60 ? 0.012 : -0.008)) * weight;
     });
 
     // 6. Brow Ridge
     fac.brows.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
-      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dBrow * 0.004) * weight;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dBrow * 0.014) * weight;
     });
 
     // 7. Lips
     fac.lips.forEach(({ idx, weight }) => {
       const pIdx = idx * 3;
-      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dLip * 0.004) * weight;
-    });
-
-    // 8. Eyes
-    fac.eyes.forEach(({ idx, weight }) => {
-      const pIdx = idx * 3;
-      currentPos[pIdx + 1] = basePos[pIdx + 1] + (dEye * 0.002) * weight;
+      currentPos[pIdx + 2] = basePos[pIdx + 2] + (dLip * 0.015) * weight;
     });
 
     posAttr.needsUpdate = true;
     geom.computeVertexNormals();
+    geom.computeBoundingSphere();
+
+    // 8. Scale Head Bone so entire head skeleton and eyes deform in sync
+    if (headBoneRef.current) {
+      headBoneRef.current.scale.set(
+        1.0 + dJaw * 0.16 + shapeHeadX,
+        1.0 + (50 - jawWidth) * 0.03 + shapeHeadY,
+        1.0 + dNoseP * 0.08 + shapeHeadZ
+      );
+    }
+
+    // 9. Scale Eyes mesh
+    if (eyesMeshRef.current) {
+      eyesMeshRef.current.scale.set(
+        1.0 + dEye * 0.12,
+        1.0 + dEye * 0.15,
+        1.0 + dEye * 0.10
+      );
+    }
   }, [jawWidth, noseWidth, noseProfile, eyeSize, browDensity, lipFullness, ageYears, faceShape, chinStyle]);
 
   // 4. Toggle Hat / Cap visibility ("without their cap as reference")
@@ -855,40 +833,12 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     }
   }, [showCap]);
 
-  // 5. Toggle Landmarks / MoCap Markers visibility
-  useEffect(() => {
-    if (landmarksGroupRef.current) {
-      landmarksGroupRef.current.visible = showMarkers;
-    }
-    if (bodyMeshRef.current) {
-      const mats = Array.isArray(bodyMeshRef.current.material)
-        ? bodyMeshRef.current.material
-        : [bodyMeshRef.current.material];
-      mats.forEach((m: any) => {
-        if (m.name === 'Reflectors') {
-          m.visible = showMarkers;
-        }
-      });
-    }
-    if (hatMeshRef.current) {
-      const mats = Array.isArray((hatMeshRef.current as any).material)
-        ? (hatMeshRef.current as any).material
-        : [(hatMeshRef.current as any).material];
-      mats.forEach((m: any) => {
-        if (m.name === 'Reflectors') {
-          m.visible = showMarkers;
-        }
-      });
-    }
-  }, [showMarkers]);
-
-  // 7. Preset Camera Angles
+  // 5. Preset Camera Angles
   const setCameraAngle = (angle: 'front' | 'threeQuarter' | 'profile') => {
     if (!cameraRef.current || !controlsRef.current || !characterModelRef.current) return;
     setActiveAngle(angle);
 
     characterModelRef.current.rotation.y = 0;
-    if (landmarksGroupRef.current) landmarksGroupRef.current.rotation.y = 0;
 
     if (angle === 'front') {
       cameraRef.current.position.set(0, 1.56, 0.88);
@@ -917,14 +867,14 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-mono font-bold tracking-wider uppercase text-cyan-300">
-                character.fbx 3D Model
+                character.fbx 3D Suspect Reconstruction
               </span>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-950/80 border border-cyan-800/60 text-cyan-400">
-                2D-to-3D Face Projection
+                Morphology Adaptive
               </span>
             </div>
             <p className="text-[10px] text-parchment-400 font-mono">
-              2D Suspect Face Pasted on 3D Bust &bull; Natural Scalp (No Cap) &bull; Real-time Morph
+              2D Face Pasted on 3D Bust &bull; Real-time Anatomical Morph &bull; Natural Scalp (No Cap)
             </p>
           </div>
         </div>
@@ -1033,66 +983,12 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               layoutMode === 'split' ? 'w-7/12' : 'w-full'
             }`}
           >
-            {/* Top Right Toolbars: Mode, Cap Toggle & Markers Toggle */}
+            {/* Top Right Toolbars: Clean Cap Toggle Only */}
             <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-slate-900/95 p-1 rounded-lg border border-slate-700/80 backdrop-blur-md shadow-lg">
               <button
                 type="button"
-                onClick={() => {
-                  setViewMode('pasted-2d');
-                  if (imageUrl) applyFaceTexture('pasted-2d', imageUrl);
-                }}
-                className={`px-3 py-1 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 ${
-                  viewMode === 'pasted-2d'
-                    ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
-                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700'
-                }`}
-                title="Paste the 2D Case Sketch Face onto the 3D Model"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
-                Pasted 2D Face
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('native-3d');
-                  applyFaceTexture('native-3d');
-                }}
-                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 ${
-                  viewMode === 'native-3d'
-                    ? 'bg-cyan-600 text-white shadow-md ring-2 ring-cyan-400'
-                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700'
-                }`}
-                title="Original 3D Model Texture"
-              >
-                <User className="w-3.5 h-3.5" />
-                Default Face
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('wireframe');
-                  applyFaceTexture('wireframe');
-                }}
-                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 ${
-                  viewMode === 'wireframe'
-                    ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
-                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700'
-                }`}
-                title="Wireframe Grid"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                Grid
-              </button>
-
-              <div className="w-[1px] h-4 bg-slate-700 mx-0.5" />
-
-              {/* Toggle Cap Button (Default: OFF / Without their cap) */}
-              <button
-                type="button"
                 onClick={() => setShowCap(!showCap)}
-                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all ${
+                className={`px-3 py-1 rounded text-[11px] font-mono font-bold transition-all ${
                   showCap
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700'
@@ -1101,46 +997,20 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               >
                 Cap: {showCap ? 'ON' : 'OFF'}
               </button>
-
-              {/* MoCap Markers ON/OFF */}
-              <button
-                type="button"
-                onClick={() => setShowMarkers(!showMarkers)}
-                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all ${
-                  showMarkers
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
-                }`}
-                title="Toggle Anthropometric MoCap Tracking Markers"
-              >
-                Markers {showMarkers ? 'ON' : 'OFF'}
-              </button>
             </div>
 
             {/* Top Left Live Status Pill in 3D Viewport */}
             <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
-              {viewMode === 'pasted-2d' && textureStatus === 'pasted' && (
+              {textureStatus === 'pasted' && (
                 <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/80 shadow-md flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  2D Face Baked into 3D Mesh
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  2D Face Texture Baked & Active
                 </span>
               )}
-              {viewMode === 'pasted-2d' && textureStatus === 'baking' && (
+              {textureStatus === 'baking' && (
                 <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-amber-950/90 text-amber-300 border border-amber-500/80 shadow-md flex items-center gap-1.5 animate-pulse">
                   <div className="w-2.5 h-2.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
                   Baking 2D Sketch Texture...
-                </span>
-              )}
-              {viewMode === 'native-3d' && (
-                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 shadow-md flex items-center gap-1.5">
-                  <User className="w-3 h-3 text-cyan-400" />
-                  Default 3D Model Texture
-                </span>
-              )}
-              {viewMode === 'wireframe' && (
-                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-indigo-950/90 text-indigo-300 border border-indigo-500/80 shadow-md flex items-center gap-1.5">
-                  <Layers className="w-3 h-3 text-indigo-400" />
-                  3D Wireframe Grid
                 </span>
               )}
             </div>
