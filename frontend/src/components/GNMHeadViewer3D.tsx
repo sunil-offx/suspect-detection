@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { api } from '../api/client';
 import {
   RotateCcw,
   Box,
@@ -66,6 +67,8 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
   const landmarksGroupRef = useRef<THREE.Group | null>(null);
   const originalTextureRef = useRef<THREE.Texture | null>(null);
   const compositedTextureRef = useRef<THREE.CanvasTexture | null>(null);
+  const lastBakedUrlRef = useRef<string | null>(null);
+  const baseImgRef = useRef<CanvasImageSource | null>(null);
 
   // Base positions and vertex indices for real-time morphing of character.fbx
   const basePositionsRef = useRef<Float32Array | null>(null);
@@ -82,11 +85,13 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
 
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('split');
   const [viewMode, setViewMode] = useState<ViewMode>('pasted-2d'); // Default: Paste 2D face on 3D model!
+  const [textureStatus, setTextureStatus] = useState<'idle' | 'baking' | 'pasted' | 'failed'>('idle');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAngle, setActiveAngle] = useState<'front' | 'threeQuarter' | 'profile'>('front');
   const [showCap, setShowCap] = useState<boolean>(false); // Default: without their cap!
   const [showMarkers, setShowMarkers] = useState<boolean>(false); // Default: clean face without giant white balls
   const [modelLoading, setModelLoading] = useState<boolean>(true);
+  const [modelReady, setModelReady] = useState<boolean>(false);
 
   // Anthropometric Metrics for HUD
   const metrics = useMemo(() => {
@@ -216,11 +221,25 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
         const model = gltf.scene;
         characterModelRef.current = model;
 
-        // Traverse model to configure meshes and prepare deformation buffers
+        // Traverse model to configure meshes and force 100% solidity (fixes see-through transparency)
         model.traverse((child: any) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
+            child.renderOrder = 0;
+
+            // Force solid opacity and depth writing on ALL materials (prevents seeing through head/body)
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach((mat: any) => {
+              if (mat) {
+                mat.transparent = false;
+                mat.opacity = 1.0;
+                mat.depthWrite = true;
+                mat.depthTest = true;
+                mat.alphaTest = 0;
+                mat.needsUpdate = true;
+              }
+            });
 
             const name = child.name.toLowerCase();
 
@@ -230,28 +249,48 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               child.visible = false;
             }
 
-            // 2. Eyes mesh (Hide when pasting 2D face)
+            // 2. Eyes mesh (Keep visible and solid so 3D eyes are present from all angles!)
             if (name.includes('eye')) {
               eyesMeshRef.current = child;
-              child.visible = false;
+              child.visible = true; // Kept solid and visible - eyes not missing!
+              const eyeMats = Array.isArray(child.material) ? child.material : [child.material];
+              eyeMats.forEach((m: any) => {
+                if (m) {
+                  m.transparent = false;
+                  m.opacity = 1.0;
+                  m.depthWrite = true;
+                  m.depthTest = true;
+                  m.roughness = 0.15; // Natural corneal specular reflection
+                  m.needsUpdate = true;
+                }
+              });
             }
 
-            // 3. Teeth mesh (Hide when pasting 2D face)
+            // 3. Teeth mesh (Hide so cartoon teeth do not poke through closed mouth)
             if (name.includes('teeth')) {
               teethMeshRef.current = child;
               child.visible = false;
             }
 
-            // 4. Brows and Lashes mesh (Hide when pasting 2D face)
+            // 4. Brows and Lashes mesh (Hide so they do not overlap 2D sketch brows)
             if (name.includes('brows') || name.includes('lashes')) {
               browsMeshRef.current = child;
               child.visible = false;
             }
 
-            // 5. Caruncula
+            // 5. Caruncula (Inner eye corner - keep visible and solid)
             if (name.includes('caruncula')) {
               carunculaMeshRef.current = child;
-              child.visible = false;
+              child.visible = true;
+              const carMats = Array.isArray(child.material) ? child.material : [child.material];
+              carMats.forEach((m: any) => {
+                if (m) {
+                  m.transparent = false;
+                  m.opacity = 1.0;
+                  m.depthWrite = true;
+                  m.depthTest = true;
+                }
+              });
             }
 
             // 6. Body mesh (contains head, face, neck, and shoulders)
@@ -260,16 +299,21 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               bodyMeshRef.current = bodyMesh;
 
               // Safely access materials (Body_MAT is index 0, Reflectors is index 1)
-              const mats = Array.isArray(bodyMesh.material) ? bodyMesh.material : [bodyMesh.material];
-              const bodyMat = mats.find((m: any) => m.name === 'Body_MAT') || mats[0];
+              const bodyMat = (mats.find((m: any) => m.name === 'Body_MAT') || mats[0]) as THREE.MeshStandardMaterial;
               const reflectorMat = mats.find((m: any) => m.name === 'Reflectors');
+
+              if (bodyMat) {
+                bodyMat.transparent = false;
+                bodyMat.opacity = 1.0;
+                bodyMat.depthWrite = true;
+                bodyMat.depthTest = true;
+                if (bodyMat.map) {
+                  originalTextureRef.current = bodyMat.map;
+                }
+              }
 
               if (reflectorMat) {
                 reflectorMat.visible = false; // Hide mocap balls by default
-              }
-
-              if (bodyMat && (bodyMat as THREE.MeshStandardMaterial).map) {
-                originalTextureRef.current = (bodyMat as THREE.MeshStandardMaterial).map;
               }
 
               const geom = bodyMesh.geometry;
@@ -345,13 +389,19 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
           }
         });
 
+        // Pose arms naturally down along the torso so hands never stick out or cross the head in profile
+        const leftArm = model.getObjectByName('mixamorig:LeftArm');
+        const rightArm = model.getObjectByName('mixamorig:RightArm');
+        if (leftArm) {
+          leftArm.rotation.set(0, 0, -1.28);
+        }
+        if (rightArm) {
+          rightArm.rotation.set(0, 0, 1.28);
+        }
+
         scene.add(model);
         setModelLoading(false);
-
-        // Apply initial pasted texture if imageUrl exists
-        if (imageUrl && viewMode === 'pasted-2d') {
-          applyFaceTexture('pasted-2d', imageUrl);
-        }
+        setModelReady(true);
       },
       undefined,
       (err) => {
@@ -398,8 +448,108 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
     };
   }, []);
 
-  // 2. Load and Paste 2D Case Sketch directly onto 3D Character Head
-  const applyFaceTexture = (view: ViewMode, imgUrl?: string) => {
+  // Helper: Bulletproof image source loader that handles Blob, DataURL, API files, and CORS
+  const fetchImageSource = async (url: string): Promise<CanvasImageSource> => {
+    // Case 1: If url is already a blob URL or data URL
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+      return new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load blob/data image'));
+        img.src = url;
+      });
+    }
+
+    // Case 2: If url is our API files endpoint or relative path
+    if (url.includes('/api/files/') || url.startsWith('/')) {
+      try {
+        const res = await api.get(url, { responseType: 'blob' });
+        if (res.data && res.data.size > 0) {
+          if (typeof createImageBitmap === 'function') {
+            try {
+              return await createImageBitmap(res.data);
+            } catch (e) {
+              console.warn('createImageBitmap failed, trying FileReader:', e);
+            }
+          }
+          return new Promise<HTMLImageElement>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+              img.src = reader.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(res.data);
+          });
+        }
+      } catch (e) {
+        console.warn('api.get blob fetch failed, trying fetch fallback:', e);
+      }
+    }
+
+    // Case 3: Try standard fetch -> blob -> createImageBitmap
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (res.ok) {
+        const blob = await res.blob();
+        if (typeof createImageBitmap === 'function') {
+          try {
+            return await createImageBitmap(blob);
+          } catch (e) {}
+        }
+        return new Promise<HTMLImageElement>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = reader.result as string;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+    } catch (e) {}
+
+    // Case 4: Fallback to standard Image element
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        const retryImg = new Image();
+        retryImg.onload = () => resolve(retryImg);
+        retryImg.onerror = () => reject(new Error(`Failed to load image from ${url}`));
+        retryImg.src = url;
+      };
+      img.src = url;
+    });
+  };
+
+  // Helper: Load base 2048x2048 diffuse map
+  const loadBaseDiffuseTexture = async (): Promise<CanvasImageSource> => {
+    try {
+      const res = await fetch('/models/mocap_diffuse_extracted.png');
+      if (res.ok) {
+        const blob = await res.blob();
+        if (typeof createImageBitmap === 'function') {
+          return await createImageBitmap(blob);
+        }
+      }
+    } catch (e) {}
+
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = '/models/mocap_diffuse_extracted.png';
+    });
+  };
+
+  // 2. Make 2D Image into a Three.js Texture and Add directly to 3D Model Face
+  const applyFaceTexture = async (view: ViewMode, imgUrl?: string) => {
     if (!bodyMeshRef.current) return;
 
     const mats = Array.isArray(bodyMeshRef.current.material)
@@ -426,96 +576,168 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
       // Revert to original Mixamo default texture
       if (originalTextureRef.current) {
         bodyMat.map = originalTextureRef.current;
+        bodyMat.map.needsUpdate = true;
+        bodyMat.transparent = false;
+        bodyMat.opacity = 1.0;
+        bodyMat.depthWrite = true;
+        bodyMat.depthTest = true;
         bodyMat.needsUpdate = true;
       }
       if (eyesMeshRef.current) eyesMeshRef.current.visible = true;
       if (teethMeshRef.current) teethMeshRef.current.visible = true;
       if (browsMeshRef.current) browsMeshRef.current.visible = true;
       if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
+      setTextureStatus('idle');
       return;
     }
 
     // view === 'pasted-2d':
-    // Hide occluding cartoon sub-meshes so the 2D sketch face features (eyes, glasses, lips) are cleanly visible
-    if (eyesMeshRef.current) eyesMeshRef.current.visible = false;
+    // If already composited for this exact imageUrl, reuse it directly!
+    if (compositedTextureRef.current && lastBakedUrlRef.current === imgUrl) {
+      bodyMat.map = compositedTextureRef.current;
+      bodyMat.map.needsUpdate = true;
+      bodyMat.wireframe = false;
+      bodyMat.transparent = false;
+      bodyMat.opacity = 1.0;
+      bodyMat.depthWrite = true;
+      bodyMat.depthTest = true;
+      bodyMat.needsUpdate = true;
+
+      if (eyesMeshRef.current) eyesMeshRef.current.visible = true;
+      if (teethMeshRef.current) teethMeshRef.current.visible = false;
+      if (browsMeshRef.current) browsMeshRef.current.visible = false;
+      if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
+      setTextureStatus('pasted');
+      return;
+    }
+
+    // Keep 3D eyes solid and visible so they are never missing from front or profile!
+    if (eyesMeshRef.current) {
+      eyesMeshRef.current.visible = true;
+      const eyeMats = Array.isArray((eyesMeshRef.current as any).material)
+        ? (eyesMeshRef.current as any).material
+        : [(eyesMeshRef.current as any).material];
+      eyeMats.forEach((m: any) => {
+        if (m) {
+          m.transparent = false;
+          m.opacity = 1.0;
+          m.depthWrite = true;
+          m.depthTest = true;
+          m.roughness = 0.15;
+          m.needsUpdate = true;
+        }
+      });
+    }
+    if (carunculaMeshRef.current) carunculaMeshRef.current.visible = true;
+
+    // Only hide teeth and 3D brows so cartoon teeth do not poke through the closed mouth
     if (teethMeshRef.current) teethMeshRef.current.visible = false;
     if (browsMeshRef.current) browsMeshRef.current.visible = false;
-    if (carunculaMeshRef.current) carunculaMeshRef.current.visible = false;
 
-    // Composite 2D sketch face directly onto base diffuse texture via Canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 2048;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    setTextureStatus('baking');
 
-    const renderComposite = (baseImgElement: CanvasImageSource) => {
-      // 1. Draw base suit and scalp texture
-      ctx.drawImage(baseImgElement, 0, 0, 2048, 2048);
+    try {
+      // 1. Load the 2D sketch image
+      const sketchSource = await fetchImageSource(imgUrl);
 
-      // 2. Load and composite the 2D sketch face
-      const sketchImg = new Image();
-      sketchImg.crossOrigin = 'anonymous';
-      sketchImg.onload = () => {
-        // Offscreen canvas for elliptical radial feathering
-        const drawSize = 755;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = drawSize;
-        tempCanvas.height = drawSize;
-        const tctx = tempCanvas.getContext('2d');
-        if (!tctx) return;
+      // 2. Ensure base texture image is ready
+      if (!baseImgRef.current) {
+        baseImgRef.current = await loadBaseDiffuseTexture();
+      }
+      const baseSource = baseImgRef.current;
 
-        tctx.drawImage(sketchImg, 0, 0, drawSize, drawSize);
+      // 3. Composite 2D sketch directly onto the 3D model diffuse texture map (2048x2048)
+      const canvas = document.createElement('canvas');
+      canvas.width = 2048;
+      canvas.height = 2048;
+      const ctx = canvas.getContext('2d')!;
 
-        // Feather edges to blend naturally into the character's scalp and neck
-        tctx.globalCompositeOperation = 'destination-in';
-        const centerX = drawSize * 0.5;
-        const centerY = drawSize * 0.52;
-        const grad = tctx.createRadialGradient(
-          centerX, centerY, drawSize * 0.22,
-          centerX, centerY, drawSize * 0.45
-        );
-        grad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
-        grad.addColorStop(0.72, 'rgba(0, 0, 0, 0.95)');
-        grad.addColorStop(0.88, 'rgba(0, 0, 0, 0.4)');
-        grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+      // Draw base skin and suit
+      ctx.drawImage(baseSource, 0, 0, 2048, 2048);
 
-        tctx.fillStyle = grad;
-        tctx.fillRect(0, 0, drawSize, drawSize);
+      // Exact UV facial coordinates on character.glb:
+      // UV center X = 546
+      // UV Eyes Y = 692
+      // UV Nose Y = 830
+      // UV Lips Y = 845
+      // UV Chin Y = 1152
+      // UV Forehead Y = 513
+      const destW = 760;
+      const destH = 880;
+      const destX = Math.round(546 - destW * 0.5); // 166
+      const destY = Math.round(692 - destH * 0.40); // 340
 
-        // Paste onto face region on 2048x2048 diffuse map (Eye Y: 690, Mouth Y: 856, Center X: 546)
-        const drawX = 169;
-        const drawY = 358;
-        ctx.drawImage(tempCanvas, drawX, drawY);
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = destW;
+      tempCanvas.height = destH;
+      const tctx = tempCanvas.getContext('2d')!;
 
-        const canvasTexture = new THREE.CanvasTexture(canvas);
-        canvasTexture.colorSpace = THREE.SRGBColorSpace;
-        canvasTexture.flipY = false;
-        canvasTexture.wrapS = THREE.ClampToEdgeWrapping;
-        canvasTexture.wrapT = THREE.ClampToEdgeWrapping;
-        canvasTexture.generateMipmaps = true;
+      tctx.drawImage(sketchSource, 0, 0, destW, destH);
 
-        compositedTextureRef.current = canvasTexture;
-        bodyMat.map = canvasTexture;
-        bodyMat.needsUpdate = true;
-      };
-      sketchImg.src = imgUrl;
-    };
+      // Feather edges with smooth elliptical gradient
+      tctx.globalCompositeOperation = 'destination-in';
+      const cx = destW * 0.5;
+      const cy = destH * 0.48;
+      const rx = destW * 0.46;
+      const ry = destH * 0.48;
 
-    if (originalTextureRef.current?.image && (originalTextureRef.current.image as any).width) {
-      renderComposite(originalTextureRef.current.image as CanvasImageSource);
-    } else {
-      const baseImg = new Image();
-      baseImg.crossOrigin = 'anonymous';
-      baseImg.onload = () => renderComposite(baseImg);
-      baseImg.src = '/models/mocap_diffuse_extracted.png';
+      tctx.save();
+      tctx.translate(cx, cy);
+      tctx.scale(rx, ry);
+      const grad = tctx.createRadialGradient(0, 0, 0.40, 0, 0, 1.0);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
+      grad.addColorStop(0.68, 'rgba(0, 0, 0, 0.98)');
+      grad.addColorStop(0.86, 'rgba(0, 0, 0, 0.60)');
+      grad.addColorStop(0.96, 'rgba(0, 0, 0, 0.15)');
+      grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+      tctx.fillStyle = grad;
+      tctx.beginPath();
+      tctx.arc(0, 0, 1.0, 0, Math.PI * 2);
+      tctx.fill();
+      tctx.restore();
+
+      // Paste onto facial UV region on diffuse map
+      ctx.drawImage(tempCanvas, destX, destY);
+
+      // 4. Create Three.js Texture directly from the canvas and add it to the 3D model!
+      const faceTexture = new THREE.CanvasTexture(canvas);
+      faceTexture.colorSpace = THREE.SRGBColorSpace;
+      faceTexture.flipY = false; // glTF standard
+      faceTexture.wrapS = THREE.ClampToEdgeWrapping;
+      faceTexture.wrapT = THREE.ClampToEdgeWrapping;
+      faceTexture.generateMipmaps = true;
+      faceTexture.minFilter = THREE.LinearMipmapLinearFilter;
+      faceTexture.magFilter = THREE.LinearFilter;
+      faceTexture.needsUpdate = true;
+
+      compositedTextureRef.current = faceTexture;
+      lastBakedUrlRef.current = imgUrl;
+
+      bodyMat.map = faceTexture;
+      bodyMat.map.needsUpdate = true;
+      bodyMat.transparent = false;
+      bodyMat.opacity = 1.0;
+      bodyMat.depthWrite = true;
+      bodyMat.depthTest = true;
+      bodyMat.needsUpdate = true;
+
+      if (Array.isArray(bodyMeshRef.current?.material)) {
+        bodyMeshRef.current.material = [...bodyMeshRef.current.material];
+      }
+
+      setTextureStatus('pasted');
+    } catch (err) {
+      console.error('Failed to paste 2D face texture:', err);
+      setTextureStatus('failed');
     }
   };
 
-  // Re-apply face texture whenever imageUrl or viewMode changes
+  // Re-apply face texture whenever imageUrl, viewMode, or modelReady changes
   useEffect(() => {
-    applyFaceTexture(viewMode, imageUrl);
-  }, [viewMode, imageUrl]);
+    if (modelReady && imageUrl) {
+      applyFaceTexture(viewMode, imageUrl);
+    }
+  }, [viewMode, imageUrl, modelReady]);
 
   // 3. Real-time Facial Structure Morphing on character.fbx
   useEffect(() => {
@@ -812,59 +1034,68 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
             }`}
           >
             {/* Top Right Toolbars: Mode, Cap Toggle & Markers Toggle */}
-            <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-noir-900/90 p-0.5 rounded-lg border border-noir-700/80 backdrop-blur-sm shadow-md">
+            <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-slate-900/95 p-1 rounded-lg border border-slate-700/80 backdrop-blur-md shadow-lg">
               <button
                 type="button"
-                onClick={() => setViewMode('pasted-2d')}
-                className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
+                onClick={() => {
+                  setViewMode('pasted-2d');
+                  if (imageUrl) applyFaceTexture('pasted-2d', imageUrl);
+                }}
+                className={`px-3 py-1 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 ${
                   viewMode === 'pasted-2d'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-parchment-300 hover:text-white'
+                    ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400'
+                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700'
                 }`}
                 title="Paste the 2D Case Sketch Face onto the 3D Model"
               >
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
                 Pasted 2D Face
               </button>
 
               <button
                 type="button"
-                onClick={() => setViewMode('native-3d')}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
+                onClick={() => {
+                  setViewMode('native-3d');
+                  applyFaceTexture('native-3d');
+                }}
+                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 ${
                   viewMode === 'native-3d'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-parchment-300 hover:text-white'
+                    ? 'bg-cyan-600 text-white shadow-md ring-2 ring-cyan-400'
+                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700'
                 }`}
                 title="Original 3D Model Texture"
               >
-                <User className="w-3 h-3" />
+                <User className="w-3.5 h-3.5" />
                 Default Face
               </button>
 
               <button
                 type="button"
-                onClick={() => setViewMode('wireframe')}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
+                onClick={() => {
+                  setViewMode('wireframe');
+                  applyFaceTexture('wireframe');
+                }}
+                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1.5 ${
                   viewMode === 'wireframe'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-parchment-300 hover:text-white'
+                    ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
+                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700'
                 }`}
                 title="Wireframe Grid"
               >
-                <Layers className="w-3 h-3" />
+                <Layers className="w-3.5 h-3.5" />
                 Grid
               </button>
 
-              <div className="w-[1px] h-3.5 bg-noir-700 mx-0.5" />
+              <div className="w-[1px] h-4 bg-slate-700 mx-0.5" />
 
               {/* Toggle Cap Button (Default: OFF / Without their cap) */}
               <button
                 type="button"
                 onClick={() => setShowCap(!showCap)}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
+                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all ${
                   showCap
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-noir-800 text-parchment-300 hover:text-white border border-noir-700'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 border border-slate-700'
                 }`}
                 title="Toggle Cap on/off"
               >
@@ -875,15 +1106,43 @@ export const GNMHeadViewer3D: React.FC<GNMViewerProps> = ({
               <button
                 type="button"
                 onClick={() => setShowMarkers(!showMarkers)}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
+                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all ${
                   showMarkers
-                    ? 'bg-amber-600 text-white'
-                    : 'text-parchment-400 hover:text-white'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
                 }`}
                 title="Toggle Anthropometric MoCap Tracking Markers"
               >
                 Markers {showMarkers ? 'ON' : 'OFF'}
               </button>
+            </div>
+
+            {/* Top Left Live Status Pill in 3D Viewport */}
+            <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
+              {viewMode === 'pasted-2d' && textureStatus === 'pasted' && (
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/80 shadow-md flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  2D Face Baked into 3D Mesh
+                </span>
+              )}
+              {viewMode === 'pasted-2d' && textureStatus === 'baking' && (
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-amber-950/90 text-amber-300 border border-amber-500/80 shadow-md flex items-center gap-1.5 animate-pulse">
+                  <div className="w-2.5 h-2.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                  Baking 2D Sketch Texture...
+                </span>
+              )}
+              {viewMode === 'native-3d' && (
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-cyan-950/90 text-cyan-300 border border-cyan-500/80 shadow-md flex items-center gap-1.5">
+                  <User className="w-3 h-3 text-cyan-400" />
+                  Default 3D Model Texture
+                </span>
+              )}
+              {viewMode === 'wireframe' && (
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-indigo-950/90 text-indigo-300 border border-indigo-500/80 shadow-md flex items-center gap-1.5">
+                  <Layers className="w-3 h-3 text-indigo-400" />
+                  3D Wireframe Grid
+                </span>
+              )}
             </div>
 
             {/* 3D WebGL Canvas Mount */}
