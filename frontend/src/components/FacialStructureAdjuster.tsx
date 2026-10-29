@@ -9,7 +9,10 @@ import {
   Check,
   ChevronDown,
   Info,
+  Box,
+  Compass,
 } from 'lucide-react';
+import { GNMHeadViewer3D } from './GNMHeadViewer3D';
 
 export interface FacialFeatureDeltas {
   face_shape?: string;
@@ -32,18 +35,23 @@ interface Props {
   initialFeatures: Record<string, string | null>;
   onApplyAdjustments: (deltas: FacialFeatureDeltas, summaryText: string) => Promise<void>;
   isGenerating?: boolean;
+  currentImageUrl?: string;
 }
 
 export const FacialStructureAdjuster: React.FC<Props> = ({
   initialFeatures,
   onApplyAdjustments,
   isGenerating = false,
+  currentImageUrl,
 }) => {
   // Current feature deltas
   const [features, setFeatures] = useState<FacialFeatureDeltas>({});
 
   // Active category tab: 'jaw' | 'eyes' | 'nose' | 'lips' | 'hair'
   const [activeTab, setActiveTab] = useState<'jaw' | 'eyes' | 'nose' | 'lips' | 'hair'>('jaw');
+
+  // Blueprint display mode: '3d-gnm' (default) | '2d-blueprint'
+  const [blueprintMode, setBlueprintMode] = useState<'3d-gnm' | '2d-blueprint'>('3d-gnm');
 
   // Interactive numeric sliders for morphological wireframe morphing (0 to 100)
   const [jawWidth, setJawWidth] = useState<number>(50); // 0 = sharp narrow chin, 100 = wide heavy square jaw
@@ -697,105 +705,156 @@ export const FacialStructureAdjuster: React.FC<Props> = ({
         </div>
 
         {/* Right: Dynamic Morph Visualization & Action Panel (5 cols) */}
-        <div className="lg:col-span-5 space-y-5">
-          {/* Anatomical Wireframe Morph Visualizer SVG */}
-          <div className="bg-noir-950 p-6 rounded-2xl border border-noir-800 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
-            <span className="absolute top-3 left-3 text-[10px] uppercase font-mono font-bold text-parchment-200 tracking-wider">
-              Morphology Blueprint
-            </span>
-
-            <svg
-              viewBox="0 0 200 240"
-              className="w-48 h-56 text-blue-400 transition-all duration-300"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              {/* Dynamic Head & Jawline outline based on jawWidth */}
-              <path
-                d={`M 100 20 C 150 20, ${150 + (jawWidth - 50) * 0.4} 70, ${150 + (jawWidth - 50) * 0.5} 130 C ${
-                  150 + (jawWidth - 50) * 0.6
-                } 190, ${120 + (jawWidth - 50) * 0.4} ${210 + (jawWidth - 50) * 0.1}, 100 ${
-                  215 + (jawWidth - 50) * 0.15
-                } C ${80 - (jawWidth - 50) * 0.4} ${210 + (jawWidth - 50) * 0.1}, ${
-                  50 - (jawWidth - 50) * 0.6
-                } 190, ${50 - (jawWidth - 50) * 0.5} 130 C ${50 - (jawWidth - 50) * 0.4} 70, 50 20, 100 20 Z`}
-                stroke="currentColor"
-                strokeWidth="2.5"
-                className="transition-all duration-200"
-              />
-
-              {/* Eyebrows based on browDensity */}
-              <path
-                d="M 65 75 Q 78 70, 90 73"
-                stroke="#60a5fa"
-                strokeWidth={1.5 + (browDensity / 100) * 2.5}
-                strokeLinecap="round"
-              />
-              <path
-                d="M 110 73 Q 122 70, 135 75"
-                stroke="#60a5fa"
-                strokeWidth={1.5 + (browDensity / 100) * 2.5}
-                strokeLinecap="round"
-              />
-
-              {/* Eyes based on eyeSize */}
-              <ellipse
-                cx="78"
-                cy="88"
-                rx={9 + (eyeSize - 50) * 0.08}
-                ry={5 + (eyeSize - 50) * 0.08}
-                stroke="#93c5fd"
-                strokeWidth="2"
-              />
-              <circle cx="78" cy="88" r="2.5" fill="#3b82f6" />
-
-              <ellipse
-                cx="122"
-                cy="88"
-                rx={9 + (eyeSize - 50) * 0.08}
-                ry={5 + (eyeSize - 50) * 0.08}
-                stroke="#93c5fd"
-                strokeWidth="2"
-              />
-              <circle cx="122" cy="88" r="2.5" fill="#3b82f6" />
-
-              {/* Nose based on noseWidth and noseProfile */}
-              <path
-                d={`M 100 88 L 100 ${125 + (noseProfile - 50) * 0.15} L ${92 - (noseWidth - 50) * 0.1} ${
-                  135 + (noseProfile - 50) * 0.1
-                } Q 100 138, ${108 + (noseWidth - 50) * 0.1} ${135 + (noseProfile - 50) * 0.1}`}
-                stroke="#38bdf8"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-
-              {/* Lips based on lipFullness */}
-              <path
-                d="M 80 162 Q 90 158, 100 160 Q 110 158, 120 162"
-                stroke="#f472b6"
-                strokeWidth={1.5 + (lipFullness / 100) * 2}
-                strokeLinecap="round"
-              />
-              <path
-                d={`M 82 163 Q 100 ${170 + (lipFullness - 50) * 0.12}, 118 163`}
-                stroke="#f472b6"
-                strokeWidth={1.5 + (lipFullness / 100) * 2.5}
-                strokeLinecap="round"
-              />
-
-              {/* Subtle forensic grid lines */}
-              <line x1="100" y1="20" x2="100" y2="215" stroke="#334155" strokeDasharray="3 3" />
-              <line x1="50" y1="88" x2="150" y2="88" stroke="#334155" strokeDasharray="3 3" />
-              <line x1="60" y1="162" x2="140" y2="162" stroke="#334155" strokeDasharray="3 3" />
-            </svg>
-
-            <div className="w-full mt-2 pt-3 border-t border-noir-800 flex items-center justify-between text-[11px] text-parchment-200 font-mono font-bold">
-              <span>Jaw Width: {jawWidth}%</span>
-              <span>Nose: {noseWidth}%</span>
-              <span>Lips: {lipFullness}%</span>
+        <div className="lg:col-span-5 space-y-4">
+          {/* Header switch for 3D GNM Model vs 2D Schematic */}
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-ink-950 font-serif">MORPHOLOGY BLUEPRINT</span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-900 text-cyan-200">
+                Google GNM
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-parchment-200 p-0.5 rounded-lg border border-parchment-border">
+              <button
+                type="button"
+                onClick={() => setBlueprintMode('3d-gnm')}
+                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1 ${
+                  blueprintMode === '3d-gnm'
+                    ? 'bg-crimson-800 text-white shadow-sm'
+                    : 'text-ink-800 hover:text-ink-950'
+                }`}
+              >
+                <Box className="w-3 h-3" />
+                Real 3D Model
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlueprintMode('2d-blueprint')}
+                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all flex items-center gap-1 ${
+                  blueprintMode === '2d-blueprint'
+                    ? 'bg-crimson-800 text-white shadow-sm'
+                    : 'text-ink-800 hover:text-ink-950'
+                }`}
+              >
+                2D Blueprint
+              </button>
             </div>
           </div>
+
+          {/* 3D GNM Parametric Head Viewport (Primary) */}
+          {blueprintMode === '3d-gnm' ? (
+            <GNMHeadViewer3D
+              imageUrl={currentImageUrl}
+              jawWidth={jawWidth}
+              noseWidth={noseWidth}
+              noseProfile={noseProfile}
+              eyeSize={eyeSize}
+              browDensity={browDensity}
+              lipFullness={lipFullness}
+              ageYears={ageYears}
+              faceShape={features.face_shape}
+              chinStyle={features.jawline}
+            />
+          ) : (
+            /* Fallback 2D Anatomical Wireframe Morph Visualizer SVG */
+            <div className="bg-noir-950 p-6 rounded-2xl border border-noir-800 flex flex-col items-center justify-center relative overflow-hidden shadow-inner h-[440px]">
+              <span className="absolute top-3 left-3 text-[10px] uppercase font-mono font-bold text-parchment-200 tracking-wider">
+                2D Schematic Blueprint
+              </span>
+
+              <svg
+                viewBox="0 0 200 240"
+                className="w-48 h-56 text-blue-400 transition-all duration-300"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                {/* Dynamic Head & Jawline outline based on jawWidth */}
+                <path
+                  d={`M 100 20 C 150 20, ${150 + (jawWidth - 50) * 0.4} 70, ${150 + (jawWidth - 50) * 0.5} 130 C ${
+                    150 + (jawWidth - 50) * 0.6
+                  } 190, ${120 + (jawWidth - 50) * 0.4} ${210 + (jawWidth - 50) * 0.1}, 100 ${
+                    215 + (jawWidth - 50) * 0.15
+                  } C ${80 - (jawWidth - 50) * 0.4} ${210 + (jawWidth - 50) * 0.1}, ${
+                    50 - (jawWidth - 50) * 0.6
+                  } 190, ${50 - (jawWidth - 50) * 0.5} 130 C ${50 - (jawWidth - 50) * 0.4} 70, 50 20, 100 20 Z`}
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="transition-all duration-200"
+                />
+
+                {/* Eyebrows based on browDensity */}
+                <path
+                  d="M 65 75 Q 78 70, 90 73"
+                  stroke="#60a5fa"
+                  strokeWidth={1.5 + (browDensity / 100) * 2.5}
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 110 73 Q 122 70, 135 75"
+                  stroke="#60a5fa"
+                  strokeWidth={1.5 + (browDensity / 100) * 2.5}
+                  strokeLinecap="round"
+                />
+
+                {/* Eyes based on eyeSize */}
+                <ellipse
+                  cx="78"
+                  cy="88"
+                  rx={9 + (eyeSize - 50) * 0.08}
+                  ry={5 + (eyeSize - 50) * 0.08}
+                  stroke="#93c5fd"
+                  strokeWidth="2"
+                />
+                <circle cx="78" cy="88" r="2.5" fill="#3b82f6" />
+
+                <ellipse
+                  cx="122"
+                  cy="88"
+                  rx={9 + (eyeSize - 50) * 0.08}
+                  ry={5 + (eyeSize - 50) * 0.08}
+                  stroke="#93c5fd"
+                  strokeWidth="2"
+                />
+                <circle cx="122" cy="88" r="2.5" fill="#3b82f6" />
+
+                {/* Nose based on noseWidth and noseProfile */}
+                <path
+                  d={`M 100 88 L 100 ${125 + (noseProfile - 50) * 0.15} L ${92 - (noseWidth - 50) * 0.1} ${
+                    135 + (noseProfile - 50) * 0.1
+                  } Q 100 138, ${108 + (noseWidth - 50) * 0.1} ${135 + (noseProfile - 50) * 0.1}`}
+                  stroke="#38bdf8"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+
+                {/* Lips based on lipFullness */}
+                <path
+                  d="M 80 162 Q 90 158, 100 160 Q 110 158, 120 162"
+                  stroke="#f472b6"
+                  strokeWidth={1.5 + (lipFullness / 100) * 2}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M 82 163 Q 100 ${170 + (lipFullness - 50) * 0.12}, 118 163`}
+                  stroke="#f472b6"
+                  strokeWidth={1.5 + (lipFullness / 100) * 2.5}
+                  strokeLinecap="round"
+                />
+
+                {/* Subtle forensic grid lines */}
+                <line x1="100" y1="20" x2="100" y2="215" stroke="#334155" strokeDasharray="3 3" />
+                <line x1="50" y1="88" x2="150" y2="88" stroke="#334155" strokeDasharray="3 3" />
+                <line x1="60" y1="162" x2="140" y2="162" stroke="#334155" strokeDasharray="3 3" />
+              </svg>
+
+              <div className="w-full mt-2 pt-3 border-t border-noir-800 flex items-center justify-between text-[11px] text-parchment-200 font-mono font-bold">
+                <span>Jaw Width: {jawWidth}%</span>
+                <span>Nose: {noseWidth}%</span>
+                <span>Lips: {lipFullness}%</span>
+              </div>
+            </div>
+          )}
 
           {/* Active Deltas Change List */}
           <div className="bg-noir-950 p-4 rounded-2xl border border-noir-800 space-y-2.5 max-h-56 overflow-y-auto">
@@ -827,7 +886,7 @@ export const FacialStructureAdjuster: React.FC<Props> = ({
             {isGenerating ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                Synthesizing Facial Adjustments (Z-Image-Turbo)...
+                Synthesizing Facial Adjustments (Forensic AI)...
               </>
             ) : (
               <>

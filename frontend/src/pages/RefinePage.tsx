@@ -290,6 +290,7 @@ export const RefinePage: React.FC = () => {
           initialFeatures={reportFeatures}
           onApplyAdjustments={handleApplyAdjustments}
           isGenerating={refining}
+          currentImageUrl={sketchCurr ? getFullImageUrl(sketchCurr.image_url) : undefined}
         />
 
         {/* 2. SECONDARY: Quick Natural Language Text Refinement */}
